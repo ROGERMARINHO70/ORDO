@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/roger/**)",
+      "PowerShell(node -e \"const p=require\\('./package.json'\\); console.log\\('Next:', p.dependencies.next\\)\")",
+      "PowerShell(npm install --save-dev prettier prettier-plugin-tailwindcss 2>&1)",
+      "PowerShell(tail -3)",
+      "PowerShell(npx shadcn@latest init --yes --defaults 2>&1)",
+      "PowerShell(npx shadcn@latest add card dialog input select dropdown-menu tabs badge switch tooltip skeleton sonner --yes 2>&1)",
+      "PowerShell(npm install @supabase/supabase-js @supabase/ssr @tanstack/react-query @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities 2>&1)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path supabase)",
+      "PowerShell(cd \"c:\\\\Users\\\\roger\\\\ordo\"; Get-Process -Name \"node\" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq \"\" } | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; Start-Process -FilePath \"cmd.exe\" -ArgumentList \"/c npm run dev\" -WindowStyle Normal; Start-Sleep -Seconds 10; $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 10 -ErrorAction SilentlyContinue; if \\($r.StatusCode -eq 200 -or $r.StatusCode -eq 307\\) { \"Server responding: $\\($r.StatusCode\\)\" } else { \"Checking...\" })"
+    ]
+  }
+}

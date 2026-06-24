@@ -16,18 +16,24 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
+        // @supabase/ssr ≥ 0.12 passes a second `headers` argument that MUST
+        // be forwarded to the response so Vercel Edge / CDNs never cache auth
+        // responses (Cache-Control: private, no-store etc.)
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
+          )
+          Object.entries(headers).forEach(([key, value]) =>
+            supabaseResponse.headers.set(key, value)
           )
         },
       },
     }
   )
 
-  // IMPORTANT: never run code between createServerClient and auth.getUser()
+  // IMPORTANT: nothing must execute between createServerClient and getUser()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -38,22 +44,24 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isAuthPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    const redirectResponse = NextResponse.redirect(url)
-    // Copy refreshed session cookies so they survive the redirect
-    supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
-      redirectResponse.cookies.set(name, value)
-    })
-    return redirectResponse
+    const res = NextResponse.redirect(url)
+    // Prevent edge caching of auth redirects
+    res.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0')
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+      res.cookies.set(name, value)
+    )
+    return res
   }
 
   if (user && path.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/hoje'
-    const redirectResponse = NextResponse.redirect(url)
-    supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
-      redirectResponse.cookies.set(name, value)
-    })
-    return redirectResponse
+    const res = NextResponse.redirect(url)
+    res.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0')
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) =>
+      res.cookies.set(name, value)
+    )
+    return res
   }
 
   return supabaseResponse

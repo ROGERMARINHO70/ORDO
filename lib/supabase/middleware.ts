@@ -9,8 +9,8 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -27,23 +27,33 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // IMPORTANT: never run code between createServerClient and auth.getUser()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
-  const isCallbackRoute = request.nextUrl.pathname.startsWith('/auth/callback')
+  const path = request.nextUrl.pathname
+  const isAuthPath = path.startsWith('/login') || path.startsWith('/auth')
 
-  if (!user && !isAuthRoute && !isCallbackRoute) {
+  if (!user && !isAuthPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    // Copy refreshed session cookies so they survive the redirect
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
+      redirectResponse.cookies.set(name, value)
+    })
+    return redirectResponse
   }
 
-  if (user && isAuthRoute) {
+  if (user && path.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/hoje'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
+      redirectResponse.cookies.set(name, value)
+    })
+    return redirectResponse
   }
 
   return supabaseResponse

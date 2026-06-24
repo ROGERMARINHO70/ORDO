@@ -23,6 +23,7 @@ export default function AssuntosPage() {
   const updateA = useUpdateAssunto()
   const createA = useCreateAssunto()
   const [query, setQuery] = useState('')
+  const [filterDisc, setFilterDisc] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [newDisc, setNewDisc] = useState('')
@@ -35,6 +36,7 @@ export default function AssuntosPage() {
   disciplinas.forEach(d => (d.assuntos ?? []).forEach(a => rows.push({ d, a })))
 
   if (query) rows = rows.filter(r => r.a.nome.toLowerCase().includes(query.toLowerCase()) || r.d.nome.toLowerCase().includes(query.toLowerCase()))
+  if (filterDisc) rows = rows.filter(r => r.d.nome === filterDisc)
   if (filterStatus) rows = rows.filter(r => r.a.status === filterStatus)
 
   const proximaRev = (nome: string) => revisoes.filter(r => r.assunto === nome && !r.concluida).sort((a, b) => a.due_em.localeCompare(b.due_em))[0]
@@ -55,10 +57,17 @@ export default function AssuntosPage() {
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <Input placeholder="Buscar…" value={query} onChange={e => setQuery(e.target.value)} className="w-44 h-8 text-sm" />
+        <Select value={filterDisc} onValueChange={v => setFilterDisc(v ?? '')}>
+          <SelectTrigger className="h-8 w-48 text-sm"><SelectValue placeholder="Disciplina" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Todas as disciplinas</SelectItem>
+            {disciplinas.map(d => <SelectItem key={d.id} value={d.nome}>{d.nome}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Select value={filterStatus} onValueChange={v => setFilterStatus(v ?? '')}>
           <SelectTrigger className="h-8 w-40 text-sm"><SelectValue placeholder="Nível" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="">Todos os níveis</SelectItem>
             {Object.entries(STATUS_ASSUNTO).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
           </SelectContent>
         </Select>

@@ -80,6 +80,7 @@ function KanbanCard({ disc, onPeek }: { disc: Disciplina; onPeek: (d: Disciplina
             <button
               key={a.id}
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); openStudyModal(disc.nome, a.nome) }}
               className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${assuntoColor(a)}`}
               title={`Registrar sessão: ${a.nome}`}
@@ -98,6 +99,7 @@ function KanbanCard({ disc, onPeek }: { disc: Disciplina; onPeek: (d: Disciplina
       {/* Registrar sessão desta disciplina */}
       <button
         type="button"
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); openStudyModal(disc.nome) }}
         className="w-full text-[10px] text-muted-foreground hover:text-primary border border-dashed border-muted hover:border-primary rounded-md py-1 transition-colors mt-1"
       >

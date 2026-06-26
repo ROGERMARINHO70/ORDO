@@ -110,31 +110,33 @@ export default function HojePage() {
         </div>
         <p className="text-xs text-muted-foreground mb-4">{metaPct}% da meta diária concluída</p>
 
-        {/* Lista de prioridades como checkboxes */}
-        <ul className="space-y-2 mb-5">
+        {/* Lista de prioridades — botões para abrir o modal */}
+        <div className="space-y-1.5 mb-5">
           {fila.map((f) => (
-            <li
+            <button
               key={f.disc}
-              className="flex items-center gap-3 text-sm cursor-pointer group rounded-lg px-2 py-1.5 hover:bg-muted/60 transition-colors -mx-2"
+              type="button"
+              className="w-full flex items-center gap-3 text-sm text-left rounded-lg px-2 py-2 hover:bg-muted/60 active:bg-muted transition-colors group"
               onClick={() => openStudyModal(f.disc)}
             >
-              <span className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${DISCIPLINAS_PESADAS.has(f.disc) ? 'border-red-400 group-hover:bg-red-50 dark:group-hover:bg-red-950/30' : 'border-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30'}`} />
-              <span className="flex-1">Estudar {f.disc}</span>
+              <span className={`w-4 h-4 rounded border-2 shrink-0 transition-colors ${DISCIPLINAS_PESADAS.has(f.disc) ? 'border-red-400 group-hover:bg-red-50 dark:group-hover:bg-red-950/30' : 'border-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30'}`} />
+              <span className="flex-1 font-medium">Estudar {f.disc}</span>
               <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
-            </li>
+            </button>
           ))}
           {pend.slice(0, 2).map((r) => (
-            <li
+            <button
               key={r.id}
-              className="flex items-center gap-3 text-sm cursor-pointer group rounded-lg px-2 py-1.5 hover:bg-muted/60 transition-colors -mx-2"
+              type="button"
+              className="w-full flex items-center gap-3 text-sm text-left rounded-lg px-2 py-2 hover:bg-muted/60 active:bg-muted transition-colors group"
               onClick={() => openStudyModal(r.disciplina, r.assunto ?? undefined)}
             >
               <span className="w-4 h-4 rounded border-2 border-emerald-400 shrink-0 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30 transition-colors" />
               <span className="flex-1 text-muted-foreground">Revisar {r.assunto ?? r.disciplina}</span>
               <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
-            </li>
+            </button>
           ))}
-        </ul>
+        </div>
 
         {/* Botão principal */}
         <Button

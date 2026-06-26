@@ -88,7 +88,34 @@ export default function DisciplinasPage() {
                   const h = horasDisc(d.nome, sessoes)
                   return (
                     <tr key={d.id} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => setPeekDisc(d)}>
-                      <td className="px-3 py-2.5 font-medium">📕 {d.nome}</td>
+                      <td className="px-3 py-2.5">
+                        <p className="font-medium">📕 {d.nome}</p>
+                        {(d.assuntos ?? []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {(d.assuntos ?? []).slice(0, 7).map(a => (
+                              <span
+                                key={a.id}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                                  a.status === 'dominado'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                    : a.status === 'critico'
+                                      ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'
+                                      : a.status === 'andamento'
+                                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/60 dark:text-yellow-400'
+                                        : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {a.nome}
+                              </span>
+                            ))}
+                            {(d.assuntos ?? []).length > 7 && (
+                              <span className="text-[10px] text-muted-foreground px-1">
+                                +{(d.assuntos ?? []).length - 7}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                         <Select value={d.status} onValueChange={v => update.mutate({ id: d.id, patch: { status: v as any } })}>
                           <SelectTrigger className="h-7 w-36 text-xs"><SelectValue /></SelectTrigger>

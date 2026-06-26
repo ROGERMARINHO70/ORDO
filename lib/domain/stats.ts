@@ -61,7 +61,8 @@ export function horasDisc(disc: string, sessoes: Sessao[]): number {
 }
 
 export function horasHoje(sessoes: Sessao[]): number {
-  return sessoes.filter((s) => s.data === today()).reduce((a, s) => a + s.minutos, 0)
+  const t = today()
+  return sessoes.filter((s) => (s.data ?? '').slice(0, 10) === t).reduce((a, s) => a + s.minutos, 0)
 }
 
 export function taxaGeral(questoes: Questao[]): number | null {
@@ -71,7 +72,7 @@ export function taxaGeral(questoes: Questao[]): number | null {
 }
 
 export function streak(sessoes: Sessao[]): number {
-  const dias = [...new Set(sessoes.map((s) => s.data))].sort().reverse()
+  const dias = [...new Set(sessoes.map((s) => (s.data ?? '').slice(0, 10)))].filter(Boolean).sort().reverse()
   if (!dias.length) return 0
   const c = today()
   if (dias[0] !== c && dias[0] !== addDays(c, -1)) return 0
@@ -82,7 +83,8 @@ export function streak(sessoes: Sessao[]): number {
 }
 
 export function revPend(revisoes: Revisao[]): Revisao[] {
-  return revisoes.filter((r) => !r.concluida && r.due_em <= today())
+  const t = today()
+  return revisoes.filter((r) => !r.concluida && (r.due_em ?? '').slice(0, 10) <= t)
 }
 
 export function indic(t: number | null): { label: string; color: string } {

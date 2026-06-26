@@ -26,7 +26,7 @@ export function useCreateSessao() {
       const { assunto, tipo, notas, ...base } = row
       const { error } = await supabase.from('sessoes').insert({ ...row, user_id: user.id })
       if (error) {
-        // code 42703 = column does not exist (migration 001 not yet applied)
+        // code 42703 = column does not exist — migration not yet applied
         if (error.code === '42703') {
           const { error: e2 } = await supabase.from('sessoes').insert({ ...base, user_id: user.id })
           if (e2) throw e2
@@ -34,6 +34,17 @@ export function useCreateSessao() {
           throw error
         }
       }
+    },
+    // Optimistic update — updates the cache immediately before the server responds
+    onMutate: async (newRow) => {
+      await qc.cancelQueries({ queryKey: KEY })
+      const prev = qc.getQueryData<Sessao[]>(KEY)
+      const optimistic: Sessao = { id: `opt-${Date.now()}`, ...newRow }
+      qc.setQueryData<Sessao[]>(KEY, (old) => [optimistic, ...(old ?? [])])
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev !== undefined) qc.setQueryData(KEY, ctx.prev)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   })

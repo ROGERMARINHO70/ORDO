@@ -212,9 +212,9 @@ export default function TimelinePage() {
       {/* cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Cronograma · 14 Semanas</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Cronograma · 12 Semanas</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Prova 20/10/2026 · {(config.meta_diaria / 60).toFixed(1)}h/dia · {config.dias_semana} dias/sem
+            26/06 → 20/09/2026 · Prova 20/10 · {(config.meta_diaria / 60).toFixed(1)}h/dia · {config.dias_semana} dias/sem
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={toggleAll} className="self-start sm:self-auto">

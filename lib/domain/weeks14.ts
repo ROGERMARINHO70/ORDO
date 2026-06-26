@@ -1,6 +1,10 @@
-import { addDays, fmt, today } from '@/lib/date'
+import { addDays, today } from '@/lib/date'
 import { ciclo } from './ciclo'
 import type { Disciplina, Questao, Erro, Revisao, Sessao, UserConfig } from './types'
+
+// Cronograma oficial: 12 semanas a partir de 29/06/2026 (segunda-feira após 26/06)
+const STUDY_START = '2026-06-29'
+export const TOTAL_WEEKS = 12
 
 export interface WeekMilestone {
   label: string
@@ -32,6 +36,15 @@ export interface Week {
 
 const DOW_LABEL = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
+function milestone(N: number): WeekMilestone | null {
+  if (N === 1) return { label: 'Início · 26/06', color: 'blue' }
+  if (N === 4) return { label: 'Simulado', color: 'purple' }
+  if (N === 8) return { label: 'Simulado', color: 'purple' }
+  if (N === 11) return { label: 'Simulado final', color: 'purple' }
+  if (N === 12) return { label: 'Revisão final', color: 'red' }
+  return null
+}
+
 export function weeks14(
   config: UserConfig,
   disciplinas: Disciplina[],
@@ -40,20 +53,14 @@ export function weeks14(
   revisoes: Revisao[],
   sessoes: Sessao[]
 ): Week[] {
-  const ex = config.exam_date
-  const exD = new Date(ex + 'T00:00:00')
-  const dow = (exD.getDay() + 6) % 7
-  const exMon = addDays(ex, -dow)
-  const start = addDays(exMon, -13 * 7)
-
-  const totalStudyDays = 14 * config.dias_semana
+  const totalStudyDays = TOTAL_WEEKS * config.dias_semana
   const fila = ciclo(disciplinas, questoes, erros, revisoes, Math.max(totalStudyDays, 28))
-
   const out: Week[] = []
   let studyDayIdx = 0
+  const td = today()
 
-  for (let w = 0; w < 14; w++) {
-    const ws = addDays(start, w * 7)
+  for (let w = 0; w < TOTAL_WEEKS; w++) {
+    const ws = addDays(STUDY_START, w * 7)
     const we = addDays(ws, 6)
     const N = w + 1
 
@@ -75,14 +82,13 @@ export function weeks14(
     const exec = sessoes.filter((s) => s.data >= ws && s.data <= we).reduce((a, s) => a + s.minutos, 0) / 60
     const plan = (config.meta_diaria * config.dias_semana) / 60
 
-    let mile: WeekMilestone | null = null
-    if (N === 1) mile = { label: 'Início do ciclo', color: 'blue' }
-    if ([4, 8, 11].includes(N)) mile = { label: 'Simulado', color: 'purple' }
-    if (N === 13) mile = { label: 'Simulado final', color: 'purple' }
-    if (N === 14) mile = { label: 'PROVA · 20/10', color: 'red' }
-
-    const td = today()
-    out.push({ N, ws, we, discs, planRev, exec, plan, mile, isNow: td >= ws && td <= we, exam: N === 14, days })
+    out.push({
+      N, ws, we, discs, planRev, exec, plan,
+      mile: milestone(N),
+      isNow: td >= ws && td <= we,
+      exam: false,
+      days,
+    })
   }
 
   return out

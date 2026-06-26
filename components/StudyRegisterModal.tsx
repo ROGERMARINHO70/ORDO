@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,8 +38,16 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
   const criarS = useCreateSessao()
   const qc = useQueryClient()
 
-  const [disc, setDisc] = useState(preset?.disc ?? disciplinas[0]?.nome ?? '')
+  const [disc, setDisc] = useState(preset?.disc ?? '')
   const [assunto, setAssunto] = useState(preset?.assunto ?? '')
+
+  // Set first discipline as default once data loads (only if nothing pre-selected)
+  useEffect(() => {
+    if (!disc && disciplinas.length > 0) {
+      setDisc(preset?.disc ?? disciplinas[0].nome)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disciplinas])
   const [tipo, setTipo] = useState<string>('teoria_video')
   const [timerMode, setTimerMode] = useState<'manual' | 'timer'>('manual')
   const [horas, setHoras] = useState('0')
@@ -85,9 +93,10 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
 
       toast.success(`${minutos}min de ${disc} registrados!`)
       onClose()
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err)
       console.error('Erro ao salvar sessão:', err)
-      toast.error('Erro ao salvar. Verifique o console para detalhes.')
+      toast.error(`Erro ao salvar: ${msg}`)
     }
   }
 

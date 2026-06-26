@@ -21,6 +21,10 @@ import { toast } from 'sonner'
 import type { Disciplina } from '@/lib/domain/types'
 import { KanbanBoard } from './KanbanBoard'
 
+function openStudyModal(disc: string, assunto?: string) {
+  window.dispatchEvent(new CustomEvent('open-study-modal', { detail: { disc, assunto } }))
+}
+
 type View = 'tabela' | 'board'
 
 const DSTATUS_COLOR_MAP: Record<string, string> = {
@@ -93,9 +97,11 @@ export default function DisciplinasPage() {
                         {(d.assuntos ?? []).length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {(d.assuntos ?? []).slice(0, 7).map(a => (
-                              <span
+                              <button
                                 key={a.id}
-                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openStudyModal(d.nome, a.nome) }}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-75 transition-opacity cursor-pointer ${
                                   a.status === 'dominado'
                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
                                     : a.status === 'critico'
@@ -104,9 +110,10 @@ export default function DisciplinasPage() {
                                         ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/60 dark:text-yellow-400'
                                         : 'bg-muted text-muted-foreground'
                                 }`}
+                                title={`Registrar sessão: ${a.nome}`}
                               >
                                 {a.nome}
-                              </span>
+                              </button>
                             ))}
                             {(d.assuntos ?? []).length > 7 && (
                               <span className="text-[10px] text-muted-foreground px-1">

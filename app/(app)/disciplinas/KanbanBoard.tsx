@@ -19,6 +19,12 @@ function assuntoColor(a: Assunto): string {
   return 'bg-muted text-muted-foreground'
 }
 
+function openStudyModal(disc: string, assunto?: string) {
+  window.dispatchEvent(
+    new CustomEvent('open-study-modal', { detail: { disc, assunto } })
+  )
+}
+
 interface Props {
   disciplinas: Disciplina[]
   onUpdate: (id: string, status: string) => void
@@ -71,9 +77,15 @@ function KanbanCard({ disc, onPeek }: { disc: Disciplina; onPeek: (d: Disciplina
       {visible.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2.5">
           {visible.map((a) => (
-            <span key={a.id} className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${assuntoColor(a)}`}>
+            <button
+              key={a.id}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openStudyModal(disc.nome, a.nome) }}
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity ${assuntoColor(a)}`}
+              title={`Registrar sessão: ${a.nome}`}
+            >
               {a.nome}
-            </span>
+            </button>
           ))}
           {overflow > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full text-muted-foreground bg-muted">
@@ -82,6 +94,15 @@ function KanbanCard({ disc, onPeek }: { disc: Disciplina; onPeek: (d: Disciplina
           )}
         </div>
       )}
+
+      {/* Registrar sessão desta disciplina */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); openStudyModal(disc.nome) }}
+        className="w-full text-[10px] text-muted-foreground hover:text-primary border border-dashed border-muted hover:border-primary rounded-md py-1 transition-colors mt-1"
+      >
+        + registrar sessão
+      </button>
 
       <div className="flex items-center gap-2">
         <Progress value={pg} className="flex-1" />

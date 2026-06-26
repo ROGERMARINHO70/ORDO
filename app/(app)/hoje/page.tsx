@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
@@ -61,6 +62,20 @@ export default function HojePage() {
   const { data: sessoes = [] } = useSessoes()
   const { data: simulados = [] } = useSimulados()
   const { data: config } = useConfig()
+
+  // feitas: disciplines saved in THIS browser session (event-driven, immediate)
+  const [feitas, setFeitas] = useState<Set<string>>(new Set())
+  // zeroed: user clicked "Zerar tudo" — ignore DB-derived done state
+  const [zeroed, setZeroed] = useState(false)
+  useEffect(() => {
+    function handler(e: Event) {
+      const disc = (e as CustomEvent<{ disc?: string }>).detail?.disc
+      if (disc) setFeitas(prev => new Set([...prev, disc]))
+    }
+    window.addEventListener('study-session-saved', handler)
+    return () => window.removeEventListener('study-session-saved', handler)
+  }, [])
+
   if (dLoading || !config) return <HojeSkeleton />
 
   const readiness = calcReadiness(disciplinas, questoes, revisoes, sessoes, simulados)
@@ -75,6 +90,19 @@ export default function HojePage() {
   const st = streak(sessoes)
   const dp = diasProva(config.exam_date)
   const td = today()
+
+  // Disciplines already recorded in DB for today (works across page reloads)
+  const discStudiedToday = new Set(
+    sessoes.filter(s => (s.data ?? '').slice(0, 10) === td).map(s => s.disciplina)
+  )
+  // Combined: if zeroed, only use event-driven feitas; otherwise use both
+  const allFeitas = zeroed
+    ? feitas
+    : new Set([...feitas, ...discStudiedToday])
+
+  const doneCount = fila.filter(f => allFeitas.has(f.disc)).length
+  const filaVis = fila.filter(f => !allFeitas.has(f.disc))
+  const pendVis = pend.filter(r => !allFeitas.has(r.disciplina)).slice(0, 2)
 
   // Próximas revisões (pendentes + hoje)
   const revHoje = revisoes.filter((r) => !r.concluida && r.due_em === td)
@@ -94,11 +122,27 @@ export default function HojePage() {
 
       {/* ── Prioridades do dia ─────────────────────────────── */}
       <div className="rounded-2xl border bg-card p-5">
-        <div className="flex items-baseline justify-between mb-1">
-          <span className="text-sm font-semibold">Prioridades do dia</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {(hojeMin / 60).toFixed(1)}h / {(meta / 60).toFixed(1)}h
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm font-semibold">
+            Prioridades do dia
+            {doneCount > 0 && (
+              <span className="ml-2 text-xs font-normal text-emerald-500">{doneCount}/{fila.length} feitas</span>
+            )}
           </span>
+          <div className="flex items-center gap-3">
+            {doneCount > 0 && (
+              <button
+                type="button"
+                onClick={() => { setFeitas(new Set()); setZeroed(true) }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Zerar tudo
+              </button>
+            )}
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {(hojeMin / 60).toFixed(1)}h / {(meta / 60).toFixed(1)}h
+            </span>
+          </div>
         </div>
 
         {/* Barra de progresso espessa */}
@@ -112,7 +156,7 @@ export default function HojePage() {
 
         {/* Lista de prioridades — botões para abrir o modal */}
         <div className="space-y-1.5 mb-5">
-          {fila.map((f) => (
+          {filaVis.map((f) => (
             <button
               key={f.disc}
               type="button"
@@ -124,7 +168,10 @@ export default function HojePage() {
               <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
             </button>
           ))}
-          {pend.slice(0, 2).map((r) => (
+          {filaVis.length === 0 && pendVis.length === 0 && (
+            <p className="text-sm text-emerald-500 text-center py-3 font-medium">Tudo feito hoje! 🎉</p>
+          )}
+          {pendVis.map((r) => (
             <button
               key={r.id}
               type="button"
@@ -145,6 +192,13 @@ export default function HojePage() {
         >
           + Registrar sessão de estudo
         </Button>
+
+        {/* DEBUG TEMPORÁRIO — remover depois */}
+        <div className="mt-3 p-2 rounded bg-yellow-100 dark:bg-yellow-900/30 text-[10px] text-yellow-800 dark:text-yellow-300 space-y-0.5">
+          <p><b>Sessões hoje ({sessoes.filter(s => (s.data ?? '').slice(0,10) === td).length}):</b> {sessoes.filter(s => (s.data ?? '').slice(0,10) === td).map(s => s.disciplina).join(' | ') || 'nenhuma'}</p>
+          <p><b>Fila ({fila.length}):</b> {fila.map(f => f.disc).join(' | ')}</p>
+          <p><b>Feitas ({doneCount}):</b> {[...allFeitas].join(' | ') || 'nenhuma'}</p>
+        </div>
       </div>
 
       {/* ── Hoje & Revisões ────────────────────────────────── */}

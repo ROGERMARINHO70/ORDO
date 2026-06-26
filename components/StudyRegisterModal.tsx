@@ -91,6 +91,7 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
         comQuestoes ? qc.refetchQueries({ queryKey: ['questoes'] }) : Promise.resolve(),
       ])
 
+      window.dispatchEvent(new CustomEvent('study-session-saved', { detail: { disc } }))
       toast.success(`${minutos}min de ${disc} registrados!`)
       onClose()
     } catch (err: unknown) {

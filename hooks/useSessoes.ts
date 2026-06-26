@@ -23,7 +23,27 @@ export function useCreateSessao() {
   return useMutation({
     mutationFn: async (row: Omit<Sessao, 'id'>) => {
       const user = (await supabase.auth.getUser()).data.user!
+      const { assunto, tipo, notas, ...base } = row
       const { error } = await supabase.from('sessoes').insert({ ...row, user_id: user.id })
+      if (error) {
+        // code 42703 = column does not exist (migration 001 not yet applied)
+        if (error.code === '42703') {
+          const { error: e2 } = await supabase.from('sessoes').insert({ ...base, user_id: user.id })
+          if (e2) throw e2
+        } else {
+          throw error
+        }
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
+export function useDeleteSessao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('sessoes').delete().eq('id', id)
       if (error) throw error
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),

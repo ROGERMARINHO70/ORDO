@@ -59,31 +59,36 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
     if (!disc) { toast.error('Selecione a disciplina'); return }
     if (minutos <= 0) { toast.error('Informe o tempo estudado'); return }
 
-    await criarS.mutateAsync({
-      disciplina: disc,
-      assunto: assunto || undefined,
-      tipo,
-      notas: notas.trim() || undefined,
-      minutos,
-      data: today(),
-    })
+    try {
+      await criarS.mutateAsync({
+        disciplina: disc,
+        assunto: assunto || undefined,
+        tipo,
+        notas: notas.trim() || undefined,
+        minutos,
+        data: today(),
+      })
 
-    if (comQuestoes) {
-      const t = parseInt(total)
-      const a = Math.min(parseInt(acertos), t)
-      if (t > 0) {
-        await criarQ.mutateAsync({ disciplina: disc, assunto: assunto || undefined, total: t, acertos: a, tempo_medio: 0, data: today() })
+      if (comQuestoes) {
+        const t = parseInt(total)
+        const a = Math.min(parseInt(acertos), t)
+        if (t > 0) {
+          await criarQ.mutateAsync({ disciplina: disc, assunto: assunto || undefined, total: t, acertos: a, tempo_medio: 0, data: today() })
+        }
       }
+
+      // Force refetch before closing so dashboard updates immediately
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ['sessoes'] }),
+        comQuestoes ? qc.refetchQueries({ queryKey: ['questoes'] }) : Promise.resolve(),
+      ])
+
+      toast.success(`${minutos}min de ${disc} registrados!`)
+      onClose()
+    } catch (err) {
+      console.error('Erro ao salvar sessão:', err)
+      toast.error('Erro ao salvar. Verifique o console para detalhes.')
     }
-
-    // Force refetch before closing so dashboard updates immediately
-    await Promise.all([
-      qc.refetchQueries({ queryKey: ['sessoes'] }),
-      comQuestoes ? qc.refetchQueries({ queryKey: ['questoes'] }) : Promise.resolve(),
-    ])
-
-    toast.success(`${minutos}min de ${disc} registrados!`)
-    onClose()
   }
 
   const saving = criarS.isPending || criarQ.isPending

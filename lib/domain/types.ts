@@ -21,6 +21,7 @@ export interface Disciplina {
 export interface Questao {
   id: string
   disciplina: string
+  assunto?: string
   total: number
   acertos: number
   tempo_medio: number

@@ -13,6 +13,7 @@ import { StudyTimer } from '@/components/StudyTimer'
 import { today } from '@/lib/date'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 
 const TIPOS = [
   { id: 'teoria_video', label: 'Teoria Vídeo', emoji: '📺' },
@@ -35,6 +36,7 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
   const { data: disciplinas = [] } = useDisciplinas()
   const criarQ = useCreateQuestao()
   const criarS = useCreateSessao()
+  const qc = useQueryClient()
 
   const [disc, setDisc] = useState(preset?.disc ?? disciplinas[0]?.nome ?? '')
   const [assunto, setAssunto] = useState(preset?.assunto ?? '')
@@ -70,9 +72,15 @@ export function StudyRegisterModal({ preset, onClose }: Props) {
       const t = parseInt(total)
       const a = Math.min(parseInt(acertos), t)
       if (t > 0) {
-        await criarQ.mutateAsync({ disciplina: disc, total: t, acertos: a, tempo_medio: 0, data: today() })
+        await criarQ.mutateAsync({ disciplina: disc, assunto: assunto || undefined, total: t, acertos: a, tempo_medio: 0, data: today() })
       }
     }
+
+    // Force refetch before closing so dashboard updates immediately
+    await Promise.all([
+      qc.refetchQueries({ queryKey: ['sessoes'] }),
+      comQuestoes ? qc.refetchQueries({ queryKey: ['questoes'] }) : Promise.resolve(),
+    ])
 
     toast.success(`${minutos}min de ${disc} registrados!`)
     onClose()

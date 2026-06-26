@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
@@ -11,14 +10,19 @@ import { useConfig } from '@/hooks/useConfig'
 import { calcReadiness } from '@/lib/domain/readiness'
 import { ciclo } from '@/lib/domain/ciclo'
 import { taxaGeral, revPend, streak, horasHoje, diasProva, cobertura, indic } from '@/lib/domain/stats'
-import { fmtFull, fmt, today, clamp } from '@/lib/date'
+import { fmtFull, today, clamp } from '@/lib/date'
 import { Ring } from '@/components/Ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { MiniTimeline } from './MiniTimeline'
-import { SessaoModal } from './SessaoModal'
-import { DISCIPLINAS_PESADAS, STATUS_ASSUNTO } from '@/lib/domain/enums'
+import { DISCIPLINAS_PESADAS } from '@/lib/domain/enums'
 import type { DimScore } from '@/lib/domain/readiness'
+
+function openStudyModal(disc?: string, assunto?: string) {
+  window.dispatchEvent(
+    new CustomEvent('open-study-modal', { detail: { disc, assunto } })
+  )
+}
 
 const ZONA_COLOR: Record<string, string> = {
   red: 'text-red-500 bg-red-50 dark:bg-red-950/40',
@@ -57,8 +61,6 @@ export default function HojePage() {
   const { data: sessoes = [] } = useSessoes()
   const { data: simulados = [] } = useSimulados()
   const { data: config } = useConfig()
-  const [showSessao, setShowSessao] = useState(false)
-
   if (dLoading || !config) return <HojeSkeleton />
 
   const readiness = calcReadiness(disciplinas, questoes, revisoes, sessoes, simulados)
@@ -108,20 +110,28 @@ export default function HojePage() {
         </div>
         <p className="text-xs text-muted-foreground mb-4">{metaPct}% da meta diária concluída</p>
 
-        {/* Lista de prioridades */}
-        <ul className="space-y-2.5 mb-5">
+        {/* Lista de prioridades como checkboxes */}
+        <ul className="space-y-2 mb-5">
           {fila.map((f) => (
-            <li key={f.disc} className="flex items-center gap-2.5 text-sm">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${DISCIPLINAS_PESADAS.has(f.disc) ? 'bg-red-500' : 'bg-blue-500'}`}
-              />
-              <span>Estudar {f.disc}</span>
+            <li
+              key={f.disc}
+              className="flex items-center gap-3 text-sm cursor-pointer group rounded-lg px-2 py-1.5 hover:bg-muted/60 transition-colors -mx-2"
+              onClick={() => openStudyModal(f.disc)}
+            >
+              <span className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${DISCIPLINAS_PESADAS.has(f.disc) ? 'border-red-400 group-hover:bg-red-50 dark:group-hover:bg-red-950/30' : 'border-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30'}`} />
+              <span className="flex-1">Estudar {f.disc}</span>
+              <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
             </li>
           ))}
           {pend.slice(0, 2).map((r) => (
-            <li key={r.id} className="flex items-center gap-2.5 text-sm">
-              <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
-              <span className="text-muted-foreground">Revisar {r.assunto ?? r.disciplina}</span>
+            <li
+              key={r.id}
+              className="flex items-center gap-3 text-sm cursor-pointer group rounded-lg px-2 py-1.5 hover:bg-muted/60 transition-colors -mx-2"
+              onClick={() => openStudyModal(r.disciplina, r.assunto ?? undefined)}
+            >
+              <span className="w-4 h-4 rounded border-2 border-emerald-400 shrink-0 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30 transition-colors" />
+              <span className="flex-1 text-muted-foreground">Revisar {r.assunto ?? r.disciplina}</span>
+              <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
             </li>
           ))}
         </ul>
@@ -129,9 +139,9 @@ export default function HojePage() {
         {/* Botão principal */}
         <Button
           className="w-full h-11 text-sm font-semibold"
-          onClick={() => setShowSessao(true)}
+          onClick={() => openStudyModal()}
         >
-          + Registrar sessão de questões
+          + Registrar sessão de estudo
         </Button>
       </div>
 
@@ -258,12 +268,6 @@ export default function HojePage() {
         />
       </div>
 
-      {showSessao && (
-        <SessaoModal
-          disciplinas={disciplinas.map((d) => d.nome)}
-          onClose={() => setShowSessao(false)}
-        />
-      )}
     </div>
   )
 }

@@ -66,6 +66,9 @@ export interface Simulado {
 export interface Sessao {
   id: string
   disciplina: string
+  assunto?: string
+  tipo?: string
+  notas?: string
   minutos: number
   data: string
 }

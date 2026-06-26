@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from './ThemeProvider'
 import { createClient } from '@/lib/supabase/client'
 import { useRevisoes } from '@/hooks/useRevisoes'
 import { useErros } from '@/hooks/useErros'
 import { revPend } from '@/lib/domain/stats'
 import { cn } from '@/lib/utils'
+import { StudyRegisterModal, type StudyModalPreset } from '@/components/StudyRegisterModal'
 
 const NAV = [
   { group: 'INÍCIO', items: [
@@ -16,7 +17,7 @@ const NAV = [
     { href: '/assistente', emoji: '✨', label: 'Assistente' },
   ]},
   { group: 'CRONOGRAMA', items: [
-    { href: '/timeline', emoji: '🗓️', label: 'Timeline 14 sem.' },
+    { href: '/timeline', emoji: '🗓️', label: 'Cronograma 12 sem.' },
     { href: '/ciclo', emoji: '🔄', label: 'Ciclo de Estudos' },
   ]},
   { group: 'BANCOS DE DADOS', items: [
@@ -35,11 +36,22 @@ export default function AppShell({ children }: Props) {
   const path = usePathname()
   const { toggle } = useTheme()
   const [open, setOpen] = useState(false)
+  const [studyModal, setStudyModal] = useState<StudyModalPreset | null>(null)
   const { data: revisoes = [] } = useRevisoes()
   const { data: erros = [] } = useErros()
   const pendentes = revPend(revisoes).length
   const errosAbertos = erros.filter((e) => !e.resolvido).length
   const supabase = createClient()
+
+  // Listen for open-study-modal event dispatched from any page
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<StudyModalPreset>).detail ?? {}
+      setStudyModal(detail)
+    }
+    window.addEventListener('open-study-modal', handler)
+    return () => window.removeEventListener('open-study-modal', handler)
+  }, [])
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
@@ -59,8 +71,19 @@ export default function AppShell({ children }: Props) {
           <div><p className="text-sm font-semibold leading-tight">Ordo</p><p className="text-[10px] text-muted-foreground">Aprovação PC-BA</p></div>
         </div>
 
+        {/* Botão de registro de sessão */}
+        <div className="px-2 pt-2 pb-1">
+          <button
+            onClick={() => { setStudyModal({}); setOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          >
+            <span className="text-base">📖</span>
+            Registrar sessão
+          </button>
+        </div>
+
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
           {NAV.map((g) => (
             <div key={g.group}>
               <p className="px-2 pt-3 pb-1 text-[10px] font-semibold text-muted-foreground tracking-wider">{g.group}</p>
@@ -118,6 +141,14 @@ export default function AppShell({ children }: Props) {
         {/* Content */}
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      {/* Modal global de registro de sessão */}
+      {studyModal !== null && (
+        <StudyRegisterModal
+          preset={studyModal}
+          onClose={() => setStudyModal(null)}
+        />
+      )}
     </div>
   )
 }

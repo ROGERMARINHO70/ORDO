@@ -193,12 +193,6 @@ export default function HojePage() {
           + Registrar sessão de estudo
         </Button>
 
-        {/* DEBUG TEMPORÁRIO — remover depois */}
-        <div className="mt-3 p-2 rounded bg-yellow-100 dark:bg-yellow-900/30 text-[10px] text-yellow-800 dark:text-yellow-300 space-y-0.5">
-          <p><b>Sessões hoje ({sessoes.filter(s => (s.data ?? '').slice(0,10) === td).length}):</b> {sessoes.filter(s => (s.data ?? '').slice(0,10) === td).map(s => s.disciplina).join(' | ') || 'nenhuma'}</p>
-          <p><b>Fila ({fila.length}):</b> {fila.map(f => f.disc).join(' | ')}</p>
-          <p><b>Feitas ({doneCount}):</b> {[...allFeitas].join(' | ') || 'nenhuma'}</p>
-        </div>
       </div>
 
       {/* ── Hoje & Revisões ────────────────────────────────── */}

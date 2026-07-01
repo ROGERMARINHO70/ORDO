@@ -79,7 +79,7 @@ export interface Plano {
 // ── Helpers internos ───────────────────────────────────────────────────────────
 
 // Parseia '01/07 a 07/07' → ['2026-07-01', '2026-07-07']
-function parsePeriodo(periodo: string): [string, string] {
+export function parsePeriodo(periodo: string): [string, string] {
   const [s, e] = periodo.split(' a ')
   const [sd, sm] = s.split('/')
   const [ed, em] = e.split('/')

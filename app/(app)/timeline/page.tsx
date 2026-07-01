@@ -1,261 +1,253 @@
 'use client'
 
-import { useState } from 'react'
-import { useDisciplinas } from '@/hooks/useDisciplinas'
-import { useQuestoes } from '@/hooks/useQuestoes'
-import { useErros } from '@/hooks/useErros'
-import { useRevisoes } from '@/hooks/useRevisoes'
-import { useSessoes } from '@/hooks/useSessoes'
-import { useConfig } from '@/hooks/useConfig'
-import { weeks14, type Week } from '@/lib/domain/weeks14'
-import { today } from '@/lib/date'
+import { useState, useCallback } from 'react'
+import { useCronograma, useSetBlocoStatus } from '@/hooks/useCronograma'
+import { useCreateSessao } from '@/hooks/useSessoes'
+import {
+  getPlano, proximoBlocoPendente, parsePeriodo, statusKey,
+  type BlocoCronograma, type SemanaPlano, type TipoBloco,
+} from '@/lib/plano'
+import { today, between } from '@/lib/date'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
-const MILE_COLOR: Record<string, string> = {
-  blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200',
-  purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-200',
-  red: 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200',
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const FASES = ['1 - Fundação', '2 - Aprofundamento', '3 - Consolidação', '4 - Reta Final'] as const
+const FASE_LABEL: Record<string, string> = {
+  '1 - Fundação': 'Fundação', '2 - Aprofundamento': 'Aprofundamento',
+  '3 - Consolidação': 'Consolidação', '4 - Reta Final': 'Reta Final',
+}
+const FASE_BAR: Record<string, string> = {
+  '1 - Fundação': 'bg-blue-500', '2 - Aprofundamento': 'bg-violet-500',
+  '3 - Consolidação': 'bg-orange-500', '4 - Reta Final': 'bg-red-500',
+}
+const TIPO_COLOR: Partial<Record<TipoBloco, string>> = {
+  'Teoria': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+  'Teoria 2ª passada': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
+  'Questões': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+  'Questões intensivas': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+  'Questões dirigidas': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+  'Revisão Semanal': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
+  'Revisão Mensal': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  'Revisão Bimestral': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+  'Revisão de resumos': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+  'Simulado': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+  'Descanso': 'bg-muted text-muted-foreground',
+}
+const TIPOS_ESTUDO = new Set<TipoBloco>([
+  'Teoria','Teoria 2ª passada','Questões','Questões intensivas','Questões dirigidas',
+  'Revisão Semanal','Revisão Mensal','Revisão Bimestral','Revisão de resumos','Simulado',
+])
+
+function fmtDate(iso: string) {
+  const [, m, d] = iso.split('-'); return `${d}/${m}`
 }
 
-function fmtShort(iso: string): string {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
-}
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
-function fmtMins(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, '0') : ''}` : `${m}min`
+function BlocoRow({
+  b, done, isToday, onToggle,
+}: {
+  b: BlocoCronograma; done: boolean; isToday: boolean
+  onToggle: (checked: boolean) => void
+}) {
+  const isStudy = TIPOS_ESTUDO.has(b.tipo)
+  return (
+    <div className={cn('flex items-start gap-2.5 px-4 py-2 border-b last:border-b-0 transition-colors',
+      isToday && 'bg-primary/5',
+      done && 'opacity-60',
+    )}>
+      {isStudy ? (
+        <input
+          type="checkbox" checked={done} aria-label={`Marcar ${b.bloco} feito`}
+          onChange={e => onToggle(e.target.checked)}
+          className="mt-0.5 w-4 h-4 shrink-0 accent-primary cursor-pointer"
+        />
+      ) : (
+        <span className="mt-0.5 w-4 h-4 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className={cn('text-sm font-medium truncate', done && 'line-through')}>{b.disciplina}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{b.assunto}</p>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+        <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', TIPO_COLOR[b.tipo] ?? 'bg-muted text-muted-foreground')}>
+          {b.tipo}
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{b.tempo}m</span>
+      </div>
+    </div>
+  )
 }
 
 function WeekCard({
-  week,
-  expanded,
-  onToggle,
-  td,
+  sem, statusMap, td, expanded, onExpand, onToggle,
 }: {
-  week: Week
-  expanded: boolean
-  onToggle: () => void
-  td: string
+  sem: SemanaPlano; statusMap: Record<string, string>; td: string
+  expanded: boolean; onExpand: () => void
+  onToggle: (b: BlocoCronograma, checked: boolean) => void
 }) {
-  const pct = week.plan > 0 ? Math.min(100, Math.round((week.exec / week.plan) * 100)) : 0
+  const plano = getPlano()
+  const [start, end] = parsePeriodo(sem.periodo)
+  const blocos = plano.cronograma.filter(b => b.data >= start && b.data <= end)
+  const study = blocos.filter(b => TIPOS_ESTUDO.has(b.tipo))
+  const done = study.filter(b => statusMap[statusKey(b)] === 'feito').length
+  const pct = study.length ? Math.round((done / study.length) * 100) : 0
+  const isNow = td >= start && td <= end
+
+  // Group blocks by date
+  const byDate: Record<string, BlocoCronograma[]> = {}
+  for (const b of blocos) { (byDate[b.data] ??= []).push(b) }
+  const dates = Object.keys(byDate).sort()
 
   return (
-    <div
-      className={cn(
-        'rounded-xl border overflow-hidden transition-shadow',
-        week.isNow && 'ring-2 ring-primary border-primary shadow-md',
-        week.exam && 'ring-2 ring-red-500 border-red-500'
-      )}
-    >
-      {/* cabeçalho da semana */}
-      <button
-        onClick={onToggle}
+    <div className={cn('rounded-xl border overflow-hidden', isNow && 'ring-2 ring-primary border-primary')}>
+      <button onClick={onExpand}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
       >
-        {expanded
-          ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-          : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-        }
-
+        {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={cn(
-              'text-[11px] font-mono font-bold shrink-0',
-              week.isNow ? 'text-primary' : 'text-muted-foreground'
-            )}>
-              SEM {week.N}
+            <span className={cn('text-[11px] font-mono font-bold', isNow ? 'text-primary' : 'text-muted-foreground')}>
+              {sem.semana.replace('Semana ', 'SEM ')}
             </span>
-            <span className="text-sm font-medium shrink-0">
-              {fmtShort(week.ws)} – {fmtShort(week.we)}
-            </span>
-            {week.isNow && (
-              <Badge className="text-[10px] py-0 h-4 px-1.5">agora</Badge>
-            )}
-            {week.mile && (
-              <Badge className={cn('text-[10px] py-0 h-4 px-1.5 border-0', MILE_COLOR[week.mile.color])}>
-                {week.mile.label}
-              </Badge>
-            )}
-            {week.planRev > 0 && (
-              <Badge variant="secondary" className="text-[10px] py-0 h-4 px-1.5">
-                ♻ {week.planRev} rev.
-              </Badge>
-            )}
+            <span className="text-sm font-medium">{sem.periodo}</span>
+            {isNow && <span className="text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-medium">agora</span>}
+            <span className="text-[10px] text-muted-foreground">{FASE_LABEL[sem.fase]}</span>
           </div>
         </div>
-
-        {/* barra de progresso */}
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-muted-foreground hidden sm:block tabular-nums">
-            {week.exec.toFixed(0)}h / {week.plan.toFixed(0)}h
-          </span>
+          <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:block">{done}/{study.length}</span>
           <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-primary')}
-              style={{ width: `${pct}%` }}
-            />
+            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${pct}%` }} />
           </div>
           <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">{pct}%</span>
         </div>
       </button>
 
-      {/* dias da semana */}
       {expanded && (
         <div className="border-t">
-          {week.days.map((day) => {
-            const isPast = day.date < td
-            const isToday = day.date === td
-            const hasSessao = day.sessMins > 0
-
-            if (!day.isStudy) {
-              return (
-                <div key={day.date} className="flex items-center gap-3 px-4 py-1.5 border-b last:border-b-0">
-                  <span className="w-8 text-[11px] text-muted-foreground/40 shrink-0">{day.label}</span>
-                  <span className="text-xs text-muted-foreground/40 w-12 shrink-0">{fmtShort(day.date)}</span>
-                  <span className="text-xs text-muted-foreground/40 italic">folga</span>
-                </div>
-              )
-            }
-
-            return (
-              <div
-                key={day.date}
-                className={cn(
-                  'flex items-center gap-3 px-4 py-2 border-b last:border-b-0 transition-colors',
-                  isToday && 'bg-primary/5',
-                  !isToday && isPast && !hasSessao && 'opacity-50'
-                )}
-              >
-                <span className={cn(
-                  'w-8 text-[11px] font-semibold shrink-0',
-                  isToday ? 'text-primary' : 'text-foreground/70'
-                )}>
-                  {day.label}
-                </span>
-                <span className={cn(
-                  'text-xs w-12 shrink-0 tabular-nums',
-                  isToday ? 'text-primary font-medium' : 'text-muted-foreground'
-                )}>
-                  {fmtShort(day.date)}
-                </span>
-                <span className={cn(
-                  'flex-1 text-sm truncate',
-                  !day.disc && 'text-muted-foreground italic'
-                )}>
-                  {day.disc || '—'}
-                </span>
-                {hasSessao ? (
-                  <Badge
-                    className="text-[10px] py-0 h-5 px-1.5 shrink-0 border-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
-                  >
-                    ✓ {fmtMins(day.sessMins)}
-                  </Badge>
-                ) : isPast && isToday === false ? (
-                  <span className="text-[11px] text-muted-foreground/30 shrink-0">–</span>
-                ) : null}
+          {dates.map(date => (
+            <div key={date}>
+              <div className={cn('px-4 py-1.5 text-[11px] font-semibold text-muted-foreground bg-muted/30 border-b',
+                date === td && 'text-primary bg-primary/5')}>
+                {byDate[date][0].diaSem} · {fmtDate(date)} {date === td && '· hoje'}
               </div>
-            )
-          })}
+              {byDate[date].map(b => (
+                <BlocoRow
+                  key={`${b.dia}-${b.bloco}`} b={b}
+                  done={statusMap[statusKey(b)] === 'feito'}
+                  isToday={date === td}
+                  onToggle={checked => onToggle(b, checked)}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
 export default function TimelinePage() {
-  const { data: disciplinas = [], isLoading } = useDisciplinas()
-  const { data: questoes = [] } = useQuestoes()
-  const { data: erros = [] } = useErros()
-  const { data: revisoes = [] } = useRevisoes()
-  const { data: sessoes = [] } = useSessoes()
-  const { data: config } = useConfig()
+  const { data: statusMap = {}, isLoading } = useCronograma()
+  const setBlocoStatus = useSetBlocoStatus()
+  const criarSessao = useCreateSessao()
 
-  const weeks = config
-    ? weeks14(config, disciplinas, questoes, erros, revisoes, sessoes)
-    : []
-
-  const currentN = weeks.find((w) => w.isNow)?.N ?? 1
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set([currentN]))
-  const [allOpen, setAllOpen] = useState(false)
   const td = today()
+  const plano = getPlano()
+  const dpProva = between(td, plano.meta.prova)
 
-  if (isLoading || !config) return <Skeleton className="h-64 m-8 rounded-xl" />
+  const currentWeekN = plano.semanas.findIndex(s => {
+    const [start, end] = parsePeriodo(s.periodo); return td >= start && td <= end
+  })
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set([Math.max(0, currentWeekN)]))
 
-  function toggleAll() {
-    if (allOpen) {
-      setExpanded(new Set([currentN]))
-    } else {
-      setExpanded(new Set(weeks.map((w) => w.N)))
+  const handleToggle = useCallback(async (b: BlocoCronograma, checked: boolean) => {
+    await setBlocoStatus.mutateAsync({ bloco: b, status: checked ? 'feito' : null })
+    if (checked && TIPOS_ESTUDO.has(b.tipo)) {
+      await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
     }
-    setAllOpen((v) => !v)
-  }
+  }, [setBlocoStatus, criarSessao])
 
-  function toggleWeek(N: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(N)) next.delete(N)
-      else next.add(N)
-      return next
-    })
-  }
+  const nextBloco = proximoBlocoPendente(statusMap)
 
-  const milestones = weeks.filter((w) => w.mile)
+  const faseStats = FASES.map(fase => {
+    const total = plano.cronograma.filter(b => b.fase === fase && TIPOS_ESTUDO.has(b.tipo))
+    const done = total.filter(b => statusMap[statusKey(b)] === 'feito').length
+    return { fase, total: total.length, done, pct: total.length ? Math.round((done / total.length) * 100) : 0 }
+  })
+
+  if (isLoading) return <div className="p-8 space-y-3"><Skeleton className="h-8 w-64" /><Skeleton className="h-32 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>
 
   return (
-    <div className="px-4 sm:px-8 py-6 pb-16 max-w-3xl mx-auto">
-      {/* cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Cronograma · 12 Semanas</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            26/06 → 20/09/2026 · Prova 20/10 · {(config.meta_diaria / 60).toFixed(1)}h/dia · {config.dias_semana} dias/sem
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={toggleAll} className="self-start sm:self-auto">
-          {allOpen ? 'Recolher tudo' : 'Expandir tudo'}
-        </Button>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-16 space-y-5">
+
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Cronograma · 139 Dias</h1>
+        <p className="text-sm text-muted-foreground">
+          PC-BA Investigador · Prova {fmtDate(plano.meta.prova)}/2026
+          {dpProva > 0 && <> · <span className="font-medium">{dpProva} dias restantes</span></>}
+        </p>
       </div>
 
-      {/* lista de semanas */}
-      <div className="space-y-2 mb-10">
-        {weeks.map((week) => (
-          <WeekCard
-            key={week.N}
-            week={week}
-            expanded={expanded.has(week.N)}
-            onToggle={() => toggleWeek(week.N)}
-            td={td}
-          />
+      {/* "Continue" card */}
+      {nextBloco && (
+        <div className="rounded-2xl border bg-card p-4 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground font-medium mb-1">Continue de onde parou</p>
+            <p className="font-semibold truncate">{nextBloco.disciplina}</p>
+            <p className="text-sm text-muted-foreground truncate">{nextBloco.assunto}</p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', TIPO_COLOR[nextBloco.tipo] ?? 'bg-muted text-muted-foreground')}>
+                {nextBloco.tipo}
+              </span>
+              <span className="text-[11px] text-muted-foreground">Dia {nextBloco.dia} · {nextBloco.tempo}min</span>
+            </div>
+          </div>
+          <button
+            onClick={() => handleToggle(nextBloco, true)}
+            className="shrink-0 text-xs font-semibold px-3 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Marcar feito
+          </button>
+        </div>
+      )}
+
+      {/* Fases */}
+      <div className="rounded-2xl border bg-card p-4 space-y-3">
+        <p className="text-sm font-semibold">Progresso por fase</p>
+        {faseStats.map(({ fase, done, total, pct }) => (
+          <div key={fase}>
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>{FASE_LABEL[fase]}</span>
+              <span className="tabular-nums">{done}/{total} · {pct}%</span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className={cn('h-full rounded-full transition-all', FASE_BAR[fase])} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* marcos */}
-      <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Marcos do ciclo</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {milestones.map((w) => (
-          <div
-            key={w.N}
-            className="rounded-xl border bg-card p-3 cursor-pointer hover:shadow-sm transition-shadow"
-            onClick={() => {
-              setExpanded((prev) => new Set([...prev, w.N]))
-              setTimeout(() => {
-                document.getElementById(`week-${w.N}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              }, 100)
-            }}
-          >
-            <Badge className={cn('text-[10px] border-0', MILE_COLOR[w.mile!.color])}>
-              {w.mile!.label}
-            </Badge>
-            <p className="text-xs text-muted-foreground mt-2">
-              Sem. {w.N} · {fmtShort(w.ws)}–{fmtShort(w.we)}
-            </p>
-          </div>
+      {/* Semanas */}
+      <div className="space-y-2">
+        {plano.semanas.map((sem, i) => (
+          <WeekCard
+            key={sem.semana} sem={sem} statusMap={statusMap} td={td}
+            expanded={expanded.has(i)}
+            onExpand={() => setExpanded(prev => {
+              const next = new Set(prev)
+              next.has(i) ? next.delete(i) : next.add(i)
+              return next
+            })}
+            onToggle={handleToggle}
+          />
         ))}
       </div>
     </div>

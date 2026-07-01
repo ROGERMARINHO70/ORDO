@@ -55,19 +55,25 @@ export function useSetBlocoStatus() {
           .eq('bloco', bloco.bloco)
         if (error) throw error
       } else {
-        const { error } = await supabase
+        const payload = {
+          user_id: user.id,
+          dia: bloco.dia,
+          bloco: bloco.bloco,
+          status,
+          feito_em: status === 'feito' ? new Date().toISOString() : null,
+        }
+        const { error: insertErr } = await supabase
           .from('cronograma_status')
-          .upsert(
-            {
-              user_id: user.id,
-              dia: bloco.dia,
-              bloco: bloco.bloco,
-              status,
-              feito_em: status === 'feito' ? new Date().toISOString() : null,
-            },
-            { onConflict: 'user_id,dia,bloco' }
-          )
-        if (error) throw error
+          .insert(payload)
+        if (insertErr) {
+          if (insertErr.code !== '23505') throw insertErr
+          // Unique conflict → update existing row
+          const { error: updateErr } = await supabase
+            .from('cronograma_status')
+            .update({ status: payload.status, feito_em: payload.feito_em })
+            .eq('user_id', user.id).eq('dia', bloco.dia).eq('bloco', bloco.bloco)
+          if (updateErr) throw updateErr
+        }
       }
     },
     onMutate: async ({ bloco, status }) => {

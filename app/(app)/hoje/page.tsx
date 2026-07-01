@@ -1,24 +1,28 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
-import { useRevisoes } from '@/hooks/useRevisoes'
-import { useSessoes } from '@/hooks/useSessoes'
+import { useRevisoes, useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
+import { useSessoes, useCreateSessao } from '@/hooks/useSessoes'
 import { useSimulados } from '@/hooks/useSimulados'
 import { useConfig } from '@/hooks/useConfig'
-import { useCronograma } from '@/hooks/useCronograma'
+import { useCronograma, useSetBlocoStatus } from '@/hooks/useCronograma'
 import { calcReadiness } from '@/lib/domain/readiness'
-import { ciclo } from '@/lib/domain/ciclo'
 import { taxaGeral, revPend, streak, horasHoje, diasProva, cobertura, indic } from '@/lib/domain/stats'
 import { fmtFull, today, clamp, between } from '@/lib/date'
-import { getPlano, proximoBlocoPendente, faseAtual, horasDaSemana, semanaAtual } from '@/lib/plano'
+import {
+  getPlano, proximoBlocoPendente, faseAtual, horasDaSemana, semanaAtual,
+  blocosDoDia, statusKey, TIPOS_ESTUDO,
+  type BlocoCronograma,
+} from '@/lib/plano'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { Ring } from '@/components/Ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { MiniTimeline } from './MiniTimeline'
-import { DISCIPLINAS_PESADAS } from '@/lib/domain/enums'
 import type { DimScore } from '@/lib/domain/readiness'
 
 function openStudyModal(disc?: string, assunto?: string) {
@@ -66,6 +70,39 @@ export default function HojePage() {
   const { data: config } = useConfig()
 
   const { data: statusMap = {} } = useCronograma()
+  const setBlocoStatus = useSetBlocoStatus()
+  const criarSessao = useCreateSessao()
+  const agendarRevisao = useAgendarRevisaoPlano()
+
+  // Hooks devem vir ANTES de qualquer early return
+  const td = today()
+
+  const feitas = useMemo(
+    () => new Set(sessoes.filter(s => (s.data ?? '').slice(0, 10) === td).map(s => s.disciplina)),
+    [sessoes, td]
+  )
+
+  const handleTogglePlano = useCallback(async (b: BlocoCronograma, checked: boolean) => {
+    const errs: string[] = []
+    try {
+      await setBlocoStatus.mutateAsync({ bloco: b, status: checked ? 'feito' : null })
+    } catch (err) {
+      const e = err as Record<string, string>
+      errs.push(e?.message ?? String(err))
+    }
+    if (checked) {
+      try {
+        await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
+        if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
+          await agendarRevisao.mutateAsync(b)
+        }
+      } catch (err) {
+        const e = err as Record<string, string>
+        errs.push(e?.message ?? String(err))
+      }
+    }
+    if (errs.length > 0) toast.error(errs.join(' | '))
+  }, [setBlocoStatus, criarSessao, agendarRevisao])
 
   if (dLoading || !config) return <HojeSkeleton />
 
@@ -74,22 +111,15 @@ export default function HojePage() {
   const ind = indic(tg)
   const cob = cobertura(disciplinas)
   const pend = revPend(revisoes)
-  const fila = ciclo(disciplinas, questoes, erros, revisoes, 4)
   const hojeMin = horasHoje(sessoes)
   const meta = config.meta_diaria
   const metaPct = clamp(Math.round((hojeMin / meta) * 100), 0, 100)
   const st = streak(sessoes)
   const dp = diasProva(config.exam_date)
-  const td = today()
 
-  // Disciplinas estudadas hoje — atualiza imediatamente via update otimista do React Query
-  const feitas = useMemo(
-    () => new Set(sessoes.filter(s => (s.data ?? '').slice(0, 10) === td).map(s => s.disciplina)),
-    [sessoes, td]
-  )
-
-  const doneCount = fila.filter(f => feitas.has(f.disc)).length
-  const filaVis = fila.filter(f => !feitas.has(f.disc))
+  // Blocos do plano para hoje (sincronizado com /timeline via cronograma_status)
+  const blocosHoje = blocosDoDia(td).filter(b => TIPOS_ESTUDO.has(b.tipo))
+  const blocoDoneCount = blocosHoje.filter(b => statusMap[statusKey(b)] === 'feito').length
   const pendVis = pend.filter(r => !feitas.has(r.disciplina)).slice(0, 2)
 
   // ── Plano 139 Dias ──────────────────────────────────────────────────────────
@@ -118,13 +148,15 @@ export default function HojePage() {
         </p>
       </div>
 
-      {/* ── Prioridades do dia ─────────────────────────────── */}
+      {/* ── Hoje no cronograma ─────────────────────────────── */}
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-semibold">
-            Prioridades do dia
-            {doneCount > 0 && (
-              <span className="ml-2 text-xs font-normal text-emerald-500">{doneCount}/{fila.length} feitas</span>
+            Hoje no cronograma
+            {blocosHoje.length > 0 && (
+              <span className={cn('ml-2 text-xs font-normal', blocoDoneCount === blocosHoje.length ? 'text-emerald-500' : 'text-muted-foreground')}>
+                {blocoDoneCount}/{blocosHoje.length} feitos
+              </span>
             )}
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -132,7 +164,7 @@ export default function HojePage() {
           </span>
         </div>
 
-        {/* Barra de progresso espessa */}
+        {/* Barra de progresso (horas estudadas hoje) */}
         <div className="relative h-3 rounded-full bg-muted overflow-hidden mb-1">
           <div
             className="h-full rounded-full bg-emerald-500 transition-all duration-500"
@@ -141,22 +173,37 @@ export default function HojePage() {
         </div>
         <p className="text-xs text-muted-foreground mb-4">{metaPct}% da meta diária concluída</p>
 
-        {/* Lista de prioridades — botões para abrir o modal */}
-        <div className="space-y-1.5 mb-5">
-          {filaVis.map((f) => (
-            <button
-              key={f.disc}
-              type="button"
-              className="w-full flex items-center gap-3 text-sm text-left rounded-lg px-2 py-2 hover:bg-muted/60 active:bg-muted transition-colors group"
-              onClick={() => openStudyModal(f.disc)}
-            >
-              <span className={`w-4 h-4 rounded border-2 shrink-0 transition-colors ${DISCIPLINAS_PESADAS.has(f.disc) ? 'border-red-400 group-hover:bg-red-50 dark:group-hover:bg-red-950/30' : 'border-blue-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30'}`} />
-              <span className="flex-1 font-medium">Estudar {f.disc}</span>
-              <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</span>
-            </button>
-          ))}
-          {filaVis.length === 0 && pendVis.length === 0 && (
-            <p className="text-sm text-emerald-500 text-center py-3 font-medium">Tudo feito hoje! 🎉</p>
+        {/* Blocos do plano para hoje */}
+        <div className="space-y-1 mb-5">
+          {blocosHoje.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-3">Descanso programado — sem blocos de estudo hoje.</p>
+          ) : (
+            <>
+              {blocosHoje.map(b => {
+                const done = statusMap[statusKey(b)] === 'feito'
+                return (
+                  <div
+                    key={`${b.dia}-${b.bloco}`}
+                    className={cn('flex items-center gap-3 text-sm rounded-lg px-2 py-1.5 transition-colors', !done && 'hover:bg-muted/60', done && 'opacity-50')}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={done}
+                      onChange={e => handleTogglePlano(b, e.target.checked)}
+                      className="w-4 h-4 accent-primary cursor-pointer shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('font-medium truncate', done && 'line-through')}>{b.disciplina}</p>
+                      <p className="text-xs text-muted-foreground truncate">{b.assunto}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{b.tempo}m</span>
+                  </div>
+                )
+              })}
+              {blocoDoneCount === blocosHoje.length && (
+                <p className="text-sm text-emerald-500 text-center py-2 font-medium">Tudo feito hoje! 🎉</p>
+              )}
+            </>
           )}
           {pendVis.map((r) => (
             <button

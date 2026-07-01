@@ -87,7 +87,7 @@ export function parsePeriodo(periodo: string): [string, string] {
   return [`${y}-${sm}-${sd}`, `${y}-${em}-${ed}`]
 }
 
-const TIPOS_ESTUDO = new Set<TipoBloco>([
+export const TIPOS_ESTUDO = new Set<TipoBloco>([
   'Teoria', 'Teoria 2ª passada', 'Questões', 'Questões intensivas',
   'Questões dirigidas', 'Revisão Semanal', 'Revisão Mensal',
   'Revisão Bimestral', 'Revisão de resumos', 'Simulado',

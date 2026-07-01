@@ -12,6 +12,7 @@ import { today, between } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -155,7 +156,7 @@ function WeekCard({
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function TimelinePage() {
-  const { data: statusMap = {}, isLoading } = useCronograma()
+  const { data: statusMap = {}, isLoading, error: cronogramaFetchErr } = useCronograma()
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
   const agendarRevisao = useAgendarRevisaoPlano()
@@ -168,14 +169,37 @@ export default function TimelinePage() {
     const [start, end] = parsePeriodo(s.periodo); return td >= start && td <= end
   })
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set([Math.max(0, currentWeekN)]))
+  const [dbError, setDbError] = useState<string | null>(null)
 
   const handleToggle = useCallback(async (b: BlocoCronograma, checked: boolean) => {
-    await setBlocoStatus.mutateAsync({ bloco: b, status: checked ? 'feito' : null })
+    setDbError(null)
+    const errs: string[] = []
+
+    // ① Salvar status no cronograma (independente da sessão)
+    try {
+      await setBlocoStatus.mutateAsync({ bloco: b, status: checked ? 'feito' : null })
+    } catch (err: unknown) {
+      const e = err as Record<string, string>
+      errs.push(`[cronograma] ${e?.message ?? e?.code ?? JSON.stringify(err)}`)
+    }
+
+    // ② Salvar sessão e revisões (independente do cronograma)
     if (checked && TIPOS_ESTUDO.has(b.tipo)) {
-      await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
-      if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
-        await agendarRevisao.mutateAsync(b)
+      try {
+        await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
+        if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
+          await agendarRevisao.mutateAsync(b)
+        }
+      } catch (err: unknown) {
+        const e = err as Record<string, string>
+        errs.push(`[sessão] ${e?.message ?? e?.code ?? JSON.stringify(err)}`)
       }
+    }
+
+    if (errs.length > 0) {
+      const msg = errs.join(' | ')
+      setDbError(msg)
+      toast.error(msg)
     }
   }, [setBlocoStatus, criarSessao, agendarRevisao])
 
@@ -191,6 +215,20 @@ export default function TimelinePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-16 space-y-5">
+
+      {/* Debug error banners */}
+      {cronogramaFetchErr && (
+        <div className="rounded-xl border border-orange-400 bg-orange-50 dark:bg-orange-950/40 p-3 text-sm text-orange-700 dark:text-orange-300 break-all">
+          <strong>Erro ao carregar cronograma:</strong>{' '}
+          {(() => { const e = cronogramaFetchErr as unknown as Record<string,string>; return e?.message ?? e?.code ?? String(cronogramaFetchErr) })()}
+        </div>
+      )}
+      {dbError && (
+        <div className="rounded-xl border border-red-400 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-300 break-all">
+          <strong>Erro ao salvar:</strong> {dbError}
+          <button className="ml-3 underline text-xs" onClick={() => setDbError(null)}>fechar</button>
+        </div>
+      )}
 
       {/* Header */}
       <div>

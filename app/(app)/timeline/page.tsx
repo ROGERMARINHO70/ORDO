@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useCronograma, useSetBlocoStatus } from '@/hooks/useCronograma'
 import { useCreateSessao } from '@/hooks/useSessoes'
+import { useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
 import {
   getPlano, proximoBlocoPendente, parsePeriodo, statusKey,
   type BlocoCronograma, type SemanaPlano, type TipoBloco,
@@ -157,6 +158,7 @@ export default function TimelinePage() {
   const { data: statusMap = {}, isLoading } = useCronograma()
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
+  const agendarRevisao = useAgendarRevisaoPlano()
 
   const td = today()
   const plano = getPlano()
@@ -171,8 +173,11 @@ export default function TimelinePage() {
     await setBlocoStatus.mutateAsync({ bloco: b, status: checked ? 'feito' : null })
     if (checked && TIPOS_ESTUDO.has(b.tipo)) {
       await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
+      if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
+        await agendarRevisao.mutateAsync(b)
+      }
     }
-  }, [setBlocoStatus, criarSessao])
+  }, [setBlocoStatus, criarSessao, agendarRevisao])
 
   const nextBloco = proximoBlocoPendente(statusMap)
 

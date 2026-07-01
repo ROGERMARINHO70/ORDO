@@ -2,9 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { today } from '@/lib/date'
+import { today, addDays } from '@/lib/date'
 import { gerarRevisoesSRS } from '@/lib/domain/srs'
 import type { Revisao } from '@/lib/domain/types'
+import type { BlocoCronograma } from '@/lib/plano'
 
 const KEY = ['revisoes']
 const supabase = createClient()
@@ -48,6 +49,36 @@ export function useReopenRevisao() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('revisoes').update({ concluida: false, concluida_em: null }).eq('id', id)
+      if (error) throw error
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
+// Agendamento de revisões 1/7/30 dias para blocos Teoria do plano139.
+// Usa origem = "plano:dia:bloco" como chave idempotente — ignora se já existe.
+export function useAgendarRevisaoPlano() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: BlocoCronograma) => {
+      const user = (await supabase.auth.getUser()).data.user!
+      const origem = `plano:${b.dia}:${b.bloco}`
+
+      const { data: existing } = await supabase
+        .from('revisoes').select('id').eq('user_id', user.id).eq('origem', origem).limit(1)
+      if (existing && existing.length > 0) return
+
+      const rows = [1, 7, 30].map((dias, etapa) => ({
+        user_id: user.id,
+        origem,
+        disciplina: b.disciplina,
+        assunto: b.assunto,
+        etapa,
+        criada_em: b.data,
+        due_em: addDays(b.data, dias),
+        concluida: false,
+      }))
+      const { error } = await supabase.from('revisoes').insert(rows)
       if (error) throw error
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),

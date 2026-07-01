@@ -17,7 +17,7 @@ const NAV = [
     { href: '/assistente', emoji: '✨', label: 'Assistente' },
   ]},
   { group: 'CRONOGRAMA', items: [
-    { href: '/timeline', emoji: '🗓️', label: 'Cronograma 12 sem.' },
+    { href: '/timeline', emoji: '🗓️', label: 'Cronograma 20 sem.' },
     { href: '/ciclo', emoji: '🔄', label: 'Ciclo de Estudos' },
   ]},
   { group: 'BANCOS DE DADOS', items: [

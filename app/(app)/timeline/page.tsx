@@ -194,7 +194,7 @@ export default function TimelinePage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Cronograma · 139 Dias</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Cronograma · 144 Dias</h1>
         <p className="text-sm text-muted-foreground">
           PC-BA Investigador · Prova {fmtDate(plano.meta.prova)}/2026
           {dpProva > 0 && <> · <span className="font-medium">{dpProva} dias restantes</span></>}

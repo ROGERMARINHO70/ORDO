@@ -213,7 +213,7 @@ export default function HojePage() {
       <div className="rounded-2xl border bg-card p-5">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <p className="text-sm font-semibold">Ciclo 139 Dias</p>
+            <p className="text-sm font-semibold">Ciclo 144 Dias</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {semanaHoje ? `${semanaHoje.semana} · ` : ''}{faseHoje}
               {dpPlano > 0 && <> · <span className="font-medium">{dpPlano}d p/ prova</span></>}

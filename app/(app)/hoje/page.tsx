@@ -8,10 +8,12 @@ import { useRevisoes } from '@/hooks/useRevisoes'
 import { useSessoes } from '@/hooks/useSessoes'
 import { useSimulados } from '@/hooks/useSimulados'
 import { useConfig } from '@/hooks/useConfig'
+import { useCronograma } from '@/hooks/useCronograma'
 import { calcReadiness } from '@/lib/domain/readiness'
 import { ciclo } from '@/lib/domain/ciclo'
 import { taxaGeral, revPend, streak, horasHoje, diasProva, cobertura, indic } from '@/lib/domain/stats'
-import { fmtFull, today, clamp } from '@/lib/date'
+import { fmtFull, today, clamp, between } from '@/lib/date'
+import { getPlano, proximoBlocoPendente, faseAtual, horasDaSemana, semanaAtual } from '@/lib/plano'
 import { Ring } from '@/components/Ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -63,6 +65,8 @@ export default function HojePage() {
   const { data: simulados = [] } = useSimulados()
   const { data: config } = useConfig()
 
+  const { data: statusMap = {} } = useCronograma()
+
   // feitas: disciplines saved in THIS browser session (event-driven, immediate)
   const [feitas, setFeitas] = useState<Set<string>>(new Set())
   // zeroed: user clicked "Zerar tudo" — ignore DB-derived done state
@@ -103,6 +107,16 @@ export default function HojePage() {
   const doneCount = fila.filter(f => allFeitas.has(f.disc)).length
   const filaVis = fila.filter(f => !allFeitas.has(f.disc))
   const pendVis = pend.filter(r => !allFeitas.has(r.disciplina)).slice(0, 2)
+
+  // ── Plano 139 Dias ──────────────────────────────────────────────────────────
+  const plano = getPlano()
+  const nextBloco = proximoBlocoPendente(statusMap)
+  const faseHoje = faseAtual(td)?.replace(/^\d+ - /, '') ?? ''
+  const semanaHoje = semanaAtual(td)
+  const horasSem = horasDaSemana(td, statusMap)
+  const metaSem = plano.meta.metaSemanalHoras
+  const semPct = clamp(Math.round((horasSem / metaSem) * 100), 0, 100)
+  const dpPlano = between(td, plano.meta.prova)
 
   // Próximas revisões (pendentes + hoje)
   const revHoje = revisoes.filter((r) => !r.concluida && r.due_em === td)
@@ -193,6 +207,49 @@ export default function HojePage() {
           + Registrar sessão de estudo
         </Button>
 
+      </div>
+
+      {/* ── Plano 139 Dias ─────────────────────────────────── */}
+      <div className="rounded-2xl border bg-card p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="text-sm font-semibold">Ciclo 139 Dias</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {semanaHoje ? `${semanaHoje.semana} · ` : ''}{faseHoje}
+              {dpPlano > 0 && <> · <span className="font-medium">{dpPlano}d p/ prova</span></>}
+            </p>
+          </div>
+          <a href="/timeline" className="text-xs text-primary hover:underline shrink-0 mt-0.5">Ver plano →</a>
+        </div>
+
+        {/* Progresso semanal */}
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Semana</span>
+            <span className="tabular-nums">{horasSem.toFixed(1)}h / {metaSem}h · {semPct}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${semPct >= 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+              style={{ width: `${semPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Próximo bloco */}
+        {nextBloco ? (
+          <div className="rounded-xl bg-muted/40 p-3">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Próximo bloco</p>
+            <p className="text-sm font-semibold leading-tight">{nextBloco.disciplina}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{nextBloco.assunto}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">{nextBloco.tipo}</span>
+              <span className="text-[10px] text-muted-foreground">Dia {nextBloco.dia} · {nextBloco.tempo}min</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-emerald-500 font-medium text-center py-1">Todos os blocos concluídos 🎉</p>
+        )}
       </div>
 
       {/* ── Hoje & Revisões ────────────────────────────────── */}

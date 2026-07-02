@@ -184,18 +184,25 @@ export default function HojePage() {
                 return (
                   <div
                     key={`${b.dia}-${b.bloco}`}
-                    className={cn('flex items-center gap-3 text-sm rounded-lg px-2 py-1.5 transition-colors', !done && 'hover:bg-muted/60', done && 'opacity-50')}
+                    className={cn('flex items-center gap-3 text-sm rounded-lg px-2 py-1.5', done && 'opacity-60')}
                   >
+                    {/* Checkbox: marca no cronograma_status */}
                     <input
                       type="checkbox"
                       checked={done}
                       onChange={e => handleTogglePlano(b, e.target.checked)}
                       className="w-4 h-4 accent-primary cursor-pointer shrink-0"
                     />
-                    <div className="flex-1 min-w-0">
+                    {/* Clicar no texto abre o modal de registro (questões, notas etc.) */}
+                    <button
+                      type="button"
+                      className="flex-1 min-w-0 text-left rounded-md hover:bg-muted/60 active:bg-muted px-1 -mx-1 py-0.5 transition-colors group"
+                      onClick={() => openStudyModal(b.disciplina, b.assunto)}
+                    >
                       <p className={cn('font-medium truncate', done && 'line-through')}>{b.disciplina}</p>
                       <p className="text-xs text-muted-foreground truncate">{b.assunto}</p>
-                    </div>
+                      <p className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">+ registrar →</p>
+                    </button>
                     <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{b.tempo}m</span>
                   </div>
                 )

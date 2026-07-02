@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
@@ -8,7 +8,7 @@ import { useRevisoes, useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
 import { useSessoes, useCreateSessao } from '@/hooks/useSessoes'
 import { useSimulados } from '@/hooks/useSimulados'
 import { useConfig } from '@/hooks/useConfig'
-import { useCronograma, useSetBlocoStatus } from '@/hooks/useCronograma'
+import { useCronograma, useSetBlocoStatus, useResetCronograma } from '@/hooks/useCronograma'
 import { calcReadiness } from '@/lib/domain/readiness'
 import { taxaGeral, revPend, streak, horasHoje, diasProva, cobertura, indic } from '@/lib/domain/stats'
 import { fmtFull, today, clamp, between } from '@/lib/date'
@@ -73,14 +73,27 @@ export default function HojePage() {
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
   const agendarRevisao = useAgendarRevisaoPlano()
+  const resetCronograma = useResetCronograma()
 
   // Hooks devem vir ANTES de qualquer early return
   const td = today()
+  const [resetConfirm, setResetConfirm] = useState(false)
 
   const feitas = useMemo(
     () => new Set(sessoes.filter(s => (s.data ?? '').slice(0, 10) === td).map(s => s.disciplina)),
     [sessoes, td]
   )
+
+  const handleReset = useCallback(async () => {
+    try {
+      await resetCronograma.mutateAsync()
+      setResetConfirm(false)
+      toast.success('Progresso zerado. Cronograma reiniciado!')
+    } catch (err: unknown) {
+      const e = err as Record<string, string>
+      toast.error(`Erro ao reiniciar: ${e?.message ?? String(err)}`)
+    }
+  }, [resetCronograma])
 
   const handleTogglePlano = useCallback(async (b: BlocoCronograma, checked: boolean) => {
     const errs: string[] = []
@@ -150,8 +163,8 @@ export default function HojePage() {
 
       {/* ── Hoje no cronograma ─────────────────────────────── */}
       <div className="rounded-2xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-semibold">
+        <div className="flex items-center justify-between mb-1 gap-2">
+          <span className="text-sm font-semibold shrink-0">
             Hoje no cronograma
             {blocosHoje.length > 0 && (
               <span className={cn('ml-2 text-xs font-normal', blocoDoneCount === blocosHoje.length ? 'text-emerald-500' : 'text-muted-foreground')}>
@@ -159,9 +172,36 @@ export default function HojePage() {
               </span>
             )}
           </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {(hojeMin / 60).toFixed(1)}h / {(meta / 60).toFixed(1)}h
-          </span>
+          <div className="flex items-center gap-2">
+            {resetConfirm ? (
+              <>
+                <button
+                  onClick={handleReset}
+                  disabled={resetCronograma.isPending}
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-60 transition-colors"
+                >
+                  {resetCronograma.isPending ? 'Zerando…' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => setResetConfirm(false)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setResetConfirm(true)}
+                className="text-[11px] text-muted-foreground hover:text-red-500 transition-colors"
+                title="Reiniciar progresso"
+              >
+                Reiniciar
+              </button>
+            )}
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {(hojeMin / 60).toFixed(1)}h / {(meta / 60).toFixed(1)}h
+            </span>
+          </div>
         </div>
 
         {/* Barra de progresso (horas estudadas hoje) */}

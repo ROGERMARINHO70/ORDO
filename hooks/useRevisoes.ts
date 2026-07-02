@@ -85,6 +85,24 @@ export function useAgendarRevisaoPlano() {
   })
 }
 
+export function useDeleteRevisao() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('revisoes').delete().eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: KEY })
+      const prev = qc.getQueryData<Revisao[]>(KEY)
+      qc.setQueryData<Revisao[]>(KEY, (old) => old?.filter((r) => r.id !== id))
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => qc.setQueryData(KEY, ctx?.prev),
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
 export function useCreateRevisao() {
   const qc = useQueryClient()
   return useMutation({

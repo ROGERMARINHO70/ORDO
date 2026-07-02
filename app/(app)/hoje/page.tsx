@@ -427,19 +427,12 @@ export default function HojePage() {
       {/* ── Mini-timeline ──────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold">Cronograma · 12 Semanas</p>
+          <p className="text-sm font-semibold">Cronograma · {plano.semanas.length} Semanas</p>
           <a href="/timeline" className="text-xs text-primary hover:underline">
             Ver completo →
           </a>
         </div>
-        <MiniTimeline
-          disciplinas={disciplinas}
-          questoes={questoes}
-          erros={erros}
-          revisoes={revisoes}
-          sessoes={sessoes}
-          config={config}
-        />
+        <MiniTimeline statusMap={statusMap} />
       </div>
 
     </div>

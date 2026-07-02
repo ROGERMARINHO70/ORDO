@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRevisoes, useConcluirRevisao, useReopenRevisao, useCreateRevisao } from '@/hooks/useRevisoes'
+import { useRevisoes, useConcluirRevisao, useReopenRevisao, useCreateRevisao, useDeleteRevisao } from '@/hooks/useRevisoes'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +30,7 @@ export default function RevisoesPage() {
   const { data: disciplinas = [] } = useDisciplinas()
   const concluir = useConcluirRevisao()
   const reabrir = useReopenRevisao()
+  const deletar = useDeleteRevisao()
   const criar = useCreateRevisao()
 
   const [view, setView] = useState<View>('tabela')
@@ -82,7 +83,7 @@ export default function RevisoesPage() {
       </div>
 
       {view === 'tabela' ? (
-        <TabelaView rows={rows} onConcluir={id => concluir.mutate(id)} onReabrir={id => reabrir.mutate(id)} />
+        <TabelaView rows={rows} onConcluir={id => concluir.mutate(id)} onReabrir={id => reabrir.mutate(id)} onDelete={id => deletar.mutate(id)} />
       ) : (
         <CalendarioView revisoes={rows} />
       )}
@@ -113,7 +114,14 @@ export default function RevisoesPage() {
   )
 }
 
-function TabelaView({ rows, onConcluir, onReabrir }: { rows: Revisao[]; onConcluir: (id: string) => void; onReabrir: (id: string) => void }) {
+function TabelaView({ rows, onConcluir, onReabrir, onDelete }: {
+  rows: Revisao[]
+  onConcluir: (id: string) => void
+  onReabrir: (id: string) => void
+  onDelete: (id: string) => void
+}) {
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
   if (!rows.length) return <EmptyState emoji="🔁" title="Nenhuma revisão" description="Crie revisões ou marque assuntos como 'dominado'." />
   return (
     <div className="rounded-xl border overflow-hidden">
@@ -131,10 +139,23 @@ function TabelaView({ rows, onConcluir, onReabrir }: { rows: Revisao[]; onConclu
                 <td className="px-3 py-2.5"><Tag color="gray">E{r.etapa + 1}</Tag></td>
                 <td className="px-3 py-2.5 font-mono text-xs"><Tag color={dueColor(r.due_em, r.concluida)}>{fmt(r.due_em)}</Tag></td>
                 <td className="px-3 py-2.5"><Tag color={r.concluida ? 'green' : 'gray'}>{r.concluida ? 'Concluída' : 'Pendente'}</Tag></td>
-                <td className="px-3 py-2.5 text-right">
-                  {r.concluida
-                    ? <button onClick={() => onReabrir(r.id)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">reabrir</button>
-                    : <button onClick={() => onConcluir(r.id)} className="text-xs text-primary hover:underline">concluir</button>}
+                <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-3">
+                    {r.concluida
+                      ? <button onClick={() => onReabrir(r.id)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">reabrir</button>
+                      : <button onClick={() => onConcluir(r.id)} className="text-xs text-primary hover:underline">concluir</button>}
+                    {confirmId === r.id ? (
+                      <>
+                        <button
+                          onClick={() => { onDelete(r.id); setConfirmId(null) }}
+                          className="text-xs text-red-500 font-semibold hover:text-red-600 transition-colors"
+                        >confirmar</button>
+                        <button onClick={() => setConfirmId(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">cancelar</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmId(r.id)} className="text-xs text-muted-foreground hover:text-red-500 transition-colors">excluir</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

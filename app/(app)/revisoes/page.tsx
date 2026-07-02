@@ -37,7 +37,7 @@ export default function RevisoesPage() {
   const [filterDisc, setFilterDisc] = useState('')
   const [showConcluidas, setShowConcluidas] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ disciplina: '', assunto: '', dueEm: today(), srs: true })
+  const [form, setForm] = useState({ disciplina: '', assunto: '', dueEm: today() })
 
   if (isLoading) return <Skeleton className="h-64 m-8 rounded-xl" />
 
@@ -49,9 +49,9 @@ export default function RevisoesPage() {
 
   async function salvar() {
     if (!form.disciplina) { toast.error('Selecione uma disciplina'); return }
-    await criar.mutateAsync({ disciplina: form.disciplina, assunto: form.assunto, dueEm: form.dueEm, srs: form.srs })
-    toast.success(form.srs ? 'Série SRS criada' : 'Revisão criada')
-    setShowCreate(false); setForm({ disciplina: '', assunto: '', dueEm: today(), srs: true })
+    await criar.mutateAsync({ disciplina: form.disciplina, assunto: form.assunto, dueEm: form.dueEm })
+    toast.success('Revisão criada — recorrência automática a cada 7 dias')
+    setShowCreate(false); setForm({ disciplina: '', assunto: '', dueEm: today() })
   }
 
   return (
@@ -98,11 +98,8 @@ export default function RevisoesPage() {
               <SelectContent>{disciplinas.map(d => <SelectItem key={d.id} value={d.nome}>{d.nome}</SelectItem>)}</SelectContent>
             </Select>
             <Input placeholder="Assunto (opcional)" value={form.assunto} onChange={e => setForm(f => ({ ...f, assunto: e.target.value }))} />
-            <div><label className="text-xs text-muted-foreground">Data da 1ª revisão</label><Input type="date" value={form.dueEm} onChange={e => setForm(f => ({ ...f, dueEm: e.target.value }))} /></div>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={form.srs} onCheckedChange={v => setForm(f => ({ ...f, srs: v }))} />
-              Agendar série SRS (1-7-15-30-60 dias)
-            </label>
+            <div><label className="text-xs text-muted-foreground">Data da revisão</label><Input type="date" value={form.dueEm} onChange={e => setForm(f => ({ ...f, dueEm: e.target.value }))} /></div>
+            <p className="text-xs text-muted-foreground">Revisão recorrente a cada 7 dias ao concluir.</p>
             <div className="flex gap-2 justify-end pt-1">
               <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancelar</Button>
               <Button onClick={salvar} disabled={criar.isPending}>Criar</Button>

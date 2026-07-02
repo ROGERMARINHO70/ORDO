@@ -4,7 +4,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
-import { useRevisoes, useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
+import { useRevisoes } from '@/hooks/useRevisoes'
 import { useSessoes, useCreateSessao } from '@/hooks/useSessoes'
 import { useSimulados } from '@/hooks/useSimulados'
 import { useConfig } from '@/hooks/useConfig'
@@ -72,7 +72,6 @@ export default function HojePage() {
   const { data: statusMap = {} } = useCronograma()
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
-  const agendarRevisao = useAgendarRevisaoPlano()
   const resetCronograma = useResetCronograma()
 
   // Hooks devem vir ANTES de qualquer early return
@@ -106,16 +105,13 @@ export default function HojePage() {
     if (checked) {
       try {
         await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
-        if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
-          await agendarRevisao.mutateAsync(b)
-        }
       } catch (err) {
         const e = err as Record<string, string>
         errs.push(e?.message ?? String(err))
       }
     }
     if (errs.length > 0) toast.error(errs.join(' | '))
-  }, [setBlocoStatus, criarSessao, agendarRevisao])
+  }, [setBlocoStatus, criarSessao])
 
   if (dLoading || !config) return <HojeSkeleton />
 

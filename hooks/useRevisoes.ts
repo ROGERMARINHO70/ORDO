@@ -3,7 +3,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { today, addDays } from '@/lib/date'
-import { gerarRevisoesSRS } from '@/lib/domain/srs'
 import type { Revisao } from '@/lib/domain/types'
 import type { BlocoCronograma } from '@/lib/plano'
 
@@ -25,11 +24,40 @@ export function useConcluirRevisao() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
+      const user = (await supabase.auth.getUser()).data.user!
+
+      // Busca a revisão para saber disciplina/assunto/origem/etapa
+      const { data: rev } = await supabase.from('revisoes').select('*').eq('id', id).single()
+
       const { error } = await supabase
         .from('revisoes')
         .update({ concluida: true, concluida_em: today() })
         .eq('id', id)
       if (error) throw error
+
+      // Agenda próxima revisão em 7 dias (revisões baseadas em erros ou manuais)
+      if (rev && (rev.origem?.startsWith('erro:') || rev.origem?.startsWith('manual:'))) {
+        const { data: existing } = await supabase
+          .from('revisoes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('origem', rev.origem)
+          .eq('concluida', false)
+          .limit(1)
+
+        if (!existing || existing.length === 0) {
+          await supabase.from('revisoes').insert({
+            user_id: user.id,
+            origem: rev.origem,
+            disciplina: rev.disciplina,
+            assunto: rev.assunto,
+            etapa: (rev.etapa ?? 0) + 1,
+            criada_em: today(),
+            due_em: addDays(today(), 7),
+            concluida: false,
+          })
+        }
+      }
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: KEY })
@@ -110,13 +138,19 @@ export function useCreateRevisao() {
       disciplina,
       assunto,
       dueEm,
-      srs,
-    }: { disciplina: string; assunto: string; dueEm: string; srs: boolean }) => {
+    }: { disciplina: string; assunto: string; dueEm: string }) => {
       const user = (await supabase.auth.getUser()).data.user!
-      const rows = srs
-        ? gerarRevisoesSRS({ origem: 'manual', disciplina, assunto, base: dueEm }).map((r) => ({ ...r, user_id: user.id }))
-        : [{ origem: 'manual', disciplina, assunto, etapa: 0, criada_em: today(), due_em: dueEm, concluida: false, user_id: user.id }]
-      const { error } = await supabase.from('revisoes').insert(rows)
+      const origem = `manual:${disciplina}:${assunto ?? ''}`
+      const { error } = await supabase.from('revisoes').insert({
+        user_id: user.id,
+        origem,
+        disciplina,
+        assunto: assunto || null,
+        etapa: 0,
+        criada_em: today(),
+        due_em: dueEm,
+        concluida: false,
+      })
       if (error) throw error
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),

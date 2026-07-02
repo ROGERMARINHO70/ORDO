@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react'
 import { useCronograma, useSetBlocoStatus, useResetCronograma } from '@/hooks/useCronograma'
 import { useCreateSessao } from '@/hooks/useSessoes'
-import { useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
 import {
   getPlano, proximoBlocoPendente, parsePeriodo, statusKey,
   type BlocoCronograma, type SemanaPlano, type TipoBloco,
@@ -159,7 +158,6 @@ export default function TimelinePage() {
   const { data: statusMap = {}, isLoading, error: cronogramaFetchErr } = useCronograma()
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
-  const agendarRevisao = useAgendarRevisaoPlano()
   const resetCronograma = useResetCronograma()
 
   const td = today()
@@ -185,13 +183,10 @@ export default function TimelinePage() {
       errs.push(`[cronograma] ${e?.message ?? e?.code ?? JSON.stringify(err)}`)
     }
 
-    // ② Salvar sessão e revisões (independente do cronograma)
+    // ② Salvar sessão (independente do cronograma)
     if (checked && TIPOS_ESTUDO.has(b.tipo)) {
       try {
         await criarSessao.mutateAsync({ disciplina: b.disciplina, minutos: b.tempo, data: b.data })
-        if (b.tipo === 'Teoria' || b.tipo === 'Teoria 2ª passada') {
-          await agendarRevisao.mutateAsync(b)
-        }
       } catch (err: unknown) {
         const e = err as Record<string, string>
         errs.push(`[sessão] ${e?.message ?? e?.code ?? JSON.stringify(err)}`)
@@ -203,7 +198,7 @@ export default function TimelinePage() {
       setDbError(msg)
       toast.error(msg)
     }
-  }, [setBlocoStatus, criarSessao, agendarRevisao])
+  }, [setBlocoStatus, criarSessao])
 
   const handleReset = useCallback(async () => {
     try {

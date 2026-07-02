@@ -97,3 +97,29 @@ export function useSetBlocoStatus() {
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   })
 }
+
+// Apaga todo o progresso do cronograma do usuário (zerar / reiniciar)
+export function useResetCronograma() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const user = (await supabase.auth.getUser()).data.user
+      if (!user) throw new Error('Usuário não autenticado')
+      const { error } = await supabase
+        .from('cronograma_status')
+        .delete()
+        .eq('user_id', user.id)
+      if (error) throw error
+    },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: KEY })
+      const prev = qc.getQueryData<Record<string, string>>(KEY)
+      qc.setQueryData<Record<string, string>>(KEY, {})
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev !== undefined) qc.setQueryData(KEY, ctx.prev)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useCronograma, useSetBlocoStatus } from '@/hooks/useCronograma'
+import { useCronograma, useSetBlocoStatus, useResetCronograma } from '@/hooks/useCronograma'
 import { useCreateSessao } from '@/hooks/useSessoes'
 import { useAgendarRevisaoPlano } from '@/hooks/useRevisoes'
 import {
@@ -160,6 +160,7 @@ export default function TimelinePage() {
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
   const agendarRevisao = useAgendarRevisaoPlano()
+  const resetCronograma = useResetCronograma()
 
   const td = today()
   const plano = getPlano()
@@ -170,6 +171,7 @@ export default function TimelinePage() {
   })
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set([Math.max(0, currentWeekN)]))
   const [dbError, setDbError] = useState<string | null>(null)
+  const [resetConfirm, setResetConfirm] = useState(false)
 
   const handleToggle = useCallback(async (b: BlocoCronograma, checked: boolean) => {
     setDbError(null)
@@ -203,6 +205,17 @@ export default function TimelinePage() {
     }
   }, [setBlocoStatus, criarSessao, agendarRevisao])
 
+  const handleReset = useCallback(async () => {
+    try {
+      await resetCronograma.mutateAsync()
+      setResetConfirm(false)
+      toast.success('Progresso zerado. Cronograma reiniciado!')
+    } catch (err: unknown) {
+      const e = err as Record<string, string>
+      toast.error(`Erro ao reiniciar: ${e?.message ?? String(err)}`)
+    }
+  }, [resetCronograma])
+
   const nextBloco = proximoBlocoPendente(statusMap)
 
   const faseStats = FASES.map(fase => {
@@ -231,12 +244,39 @@ export default function TimelinePage() {
       )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Cronograma · 144 Dias</h1>
-        <p className="text-sm text-muted-foreground">
-          PC-BA Investigador · Prova {fmtDate(plano.meta.prova)}/2026
-          {dpProva > 0 && <> · <span className="font-medium">{dpProva} dias restantes</span></>}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Cronograma · 144 Dias</h1>
+          <p className="text-sm text-muted-foreground">
+            PC-BA Investigador · Prova {fmtDate(plano.meta.prova)}/2026
+            {dpProva > 0 && <> · <span className="font-medium">{dpProva} dias restantes</span></>}
+          </p>
+        </div>
+        {/* Zerar progresso */}
+        {resetConfirm ? (
+          <div className="flex items-center gap-2 shrink-0 mt-0.5">
+            <button
+              onClick={handleReset}
+              disabled={resetCronograma.isPending}
+              className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-60 transition-colors"
+            >
+              {resetCronograma.isPending ? 'Zerando…' : 'Confirmar'}
+            </button>
+            <button
+              onClick={() => setResetConfirm(false)}
+              className="text-xs px-2 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setResetConfirm(true)}
+            className="text-xs px-3 py-1.5 rounded-lg border text-muted-foreground hover:text-red-500 hover:border-red-400 shrink-0 mt-0.5 transition-colors"
+          >
+            Reiniciar
+          </button>
+        )}
       </div>
 
       {/* "Continue" card */}

@@ -28,7 +28,8 @@ export function useCreateQuestao() {
       const { assunto, ...base } = row
       const { error } = await supabase.from('questoes').insert({ ...row, user_id: user.id })
       if (error) {
-        if (error.code === '42703') {
+        // 42703 = coluna desconhecida (PostgreSQL), PGRST204 = coluna fora do schema cache (PostgREST)
+        if (error.code === '42703' || error.code === 'PGRST204') {
           const { error: e2 } = await supabase.from('questoes').insert({ ...base, user_id: user.id })
           if (e2) throw e2
         } else {

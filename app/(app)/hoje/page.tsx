@@ -5,7 +5,7 @@ import { useDisciplinas } from '@/hooks/useDisciplinas'
 import { useQuestoes } from '@/hooks/useQuestoes'
 import { useErros } from '@/hooks/useErros'
 import { useRevisoes } from '@/hooks/useRevisoes'
-import { useSessoes, useCreateSessao } from '@/hooks/useSessoes'
+import { useSessoes, useCreateSessao, useResetSessoesHoje } from '@/hooks/useSessoes'
 import { useSimulados } from '@/hooks/useSimulados'
 import { useConfig } from '@/hooks/useConfig'
 import { useCronograma, useSetBlocoStatus, useResetCronograma } from '@/hooks/useCronograma'
@@ -73,6 +73,7 @@ export default function HojePage() {
   const setBlocoStatus = useSetBlocoStatus()
   const criarSessao = useCreateSessao()
   const resetCronograma = useResetCronograma()
+  const resetSessoesHoje = useResetSessoesHoje()
 
   // Hooks devem vir ANTES de qualquer early return
   const td = today()
@@ -85,14 +86,17 @@ export default function HojePage() {
 
   const handleReset = useCallback(async () => {
     try {
-      await resetCronograma.mutateAsync()
+      await Promise.all([
+        resetCronograma.mutateAsync(),
+        resetSessoesHoje.mutateAsync(),
+      ])
       setResetConfirm(false)
-      toast.success('Progresso zerado. Cronograma reiniciado!')
+      toast.success('Progresso e tempo de hoje zerados!')
     } catch (err: unknown) {
       const e = err as Record<string, string>
       toast.error(`Erro ao reiniciar: ${e?.message ?? String(err)}`)
     }
-  }, [resetCronograma])
+  }, [resetCronograma, resetSessoesHoje])
 
   const handleTogglePlano = useCallback(async (b: BlocoCronograma, checked: boolean) => {
     const errs: string[] = []

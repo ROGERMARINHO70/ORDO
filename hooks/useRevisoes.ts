@@ -35,8 +35,8 @@ export function useConcluirRevisao() {
         .eq('id', id)
       if (error) throw error
 
-      // Agenda próxima revisão em 7 dias (revisões baseadas em erros ou manuais)
-      if (rev && (rev.origem?.startsWith('erro:') || rev.origem?.startsWith('manual:'))) {
+      // Agenda próxima revisão em 7 dias (erros, questões com < 75% e manuais)
+      if (rev && (rev.origem?.startsWith('erro:') || rev.origem?.startsWith('manual:') || rev.origem?.startsWith('questao:'))) {
         const { data: existing } = await supabase
           .from('revisoes')
           .select('id')

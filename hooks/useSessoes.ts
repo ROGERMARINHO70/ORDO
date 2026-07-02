@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { today } from '@/lib/date'
 import type { Sessao } from '@/lib/domain/types'
 
 const KEY = ['sessoes']
@@ -48,6 +49,34 @@ export function useCreateSessao() {
         ...(old ?? []),
       ])
       return { prev, optId }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev !== undefined) qc.setQueryData(KEY, ctx.prev)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
+}
+
+// Apaga todas as sessões de hoje do usuário (zerar tempo do dia)
+export function useResetSessoesHoje() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const user = (await supabase.auth.getUser()).data.user
+      if (!user) throw new Error('Usuário não autenticado')
+      const { error } = await supabase
+        .from('sessoes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('data', today())
+      if (error) throw error
+    },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: KEY })
+      const prev = qc.getQueryData<Sessao[]>(KEY)
+      const td = today()
+      qc.setQueryData<Sessao[]>(KEY, (old) => old?.filter(s => s.data !== td) ?? [])
+      return { prev }
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev !== undefined) qc.setQueryData(KEY, ctx.prev)

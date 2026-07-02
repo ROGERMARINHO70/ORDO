@@ -2,9 +2,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { addDays, today } from '@/lib/date'
 import type { Questao } from '@/lib/domain/types'
 
 const KEY = ['questoes']
+const REV_KEY = ['revisoes']
 const supabase = createClient()
 
 export function useQuestoes() {
@@ -33,8 +35,36 @@ export function useCreateQuestao() {
           throw error
         }
       }
+
+      // Se acerto < 75% → agendar revisão em 7 dias (deduplicado por assunto)
+      if (row.total > 0 && row.acertos / row.total < 0.75) {
+        const origem = `questao:${row.disciplina}:${row.assunto ?? ''}`
+        const { data: existing } = await supabase
+          .from('revisoes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('origem', origem)
+          .eq('concluida', false)
+          .limit(1)
+
+        if (!existing || existing.length === 0) {
+          await supabase.from('revisoes').insert({
+            user_id: user.id,
+            origem,
+            disciplina: row.disciplina,
+            assunto: row.assunto ?? null,
+            etapa: 0,
+            criada_em: today(),
+            due_em: addDays(today(), 7),
+            concluida: false,
+          })
+        }
+      }
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      qc.invalidateQueries({ queryKey: REV_KEY })
+    },
   })
 }
 

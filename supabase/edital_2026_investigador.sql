@@ -1,12 +1,3 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- Edital SAEB nº 02/2026 (29/07/2026) — Investigador de Polícia Civil PC-BA
--- Substitui disciplinas/assuntos do usuário pelo conteúdo programático REAL
--- (Anexo I). Rode no SQL Editor do Supabase.
---
--- ATENÇÃO: apaga as disciplinas/assuntos atuais (o histórico de sessões,
--- questões e revisões NÃO é afetado — eles guardam nomes como texto).
--- ═══════════════════════════════════════════════════════════════════════════
-
 do $$
 declare
   uid uuid := (select id from auth.users order by created_at limit 1);
@@ -21,7 +12,6 @@ begin
   create temp table _e(nome text, peso int, assuntos text[]) on commit drop;
 
   insert into _e values
-  -- ── CONHECIMENTOS GERAIS (40 questões) ────────────────────────────────────
   ('Língua Portuguesa', 2, array[
     'Compreensão e interpretação de texto; tipologia e gêneros textuais',
     'Semântica: significação, sinonímia/antonímia, figuras de linguagem',
@@ -110,7 +100,6 @@ begin
     'Lei estadual 11.370/2009 — Lei Orgânica da Polícia Civil da Bahia',
     'Lei 8.906/1994 — Estatuto da Advocacia']),
 
-  -- ── CONHECIMENTOS ESPECÍFICOS (60 questões) ───────────────────────────────
   ('Noções de Contabilidade', 1, array[
     'Fundamentos: conceitos, objeto, usuários, estrutura conceitual',
     'Patrimônio: ativo, passivo e patrimônio líquido; equação fundamental',

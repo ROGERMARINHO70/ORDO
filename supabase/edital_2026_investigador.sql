@@ -9,6 +9,7 @@ begin
   delete from assuntos where user_id = uid;
   delete from disciplinas where user_id = uid;
 
+  drop table if exists _e;
   create temp table _e(nome text, peso int, assuntos text[]) on commit drop;
 
   insert into _e values
@@ -218,15 +219,16 @@ begin
 
   for r in select * from _e loop
     did := uuid_generate_v4();
-    insert into disciplinas(id, user_id, nome, peso, prioridade)
-    values (
-      did, uid, r.nome, r.peso,
-      case when r.peso >= 3 then 'Alta' when r.peso >= 2 then 'Média' else 'Baixa' end::prioridade_tipo
-    );
+    insert into disciplinas(id, user_id, nome, peso)
+    values (did, uid, r.nome, r.peso);
     insert into assuntos(user_id, disciplina_id, nome, ordem)
     select uid, did, a, ord - 1
     from unnest(r.assuntos) with ordinality as t(a, ord);
   end loop;
+
+  update disciplinas set prioridade = 'Alta'  where user_id = uid and peso >= 3;
+  update disciplinas set prioridade = 'Média' where user_id = uid and peso = 2;
+  update disciplinas set prioridade = 'Baixa' where user_id = uid and peso <= 1;
 end $$;
 
 notify pgrst, 'reload schema';

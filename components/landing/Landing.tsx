@@ -14,7 +14,8 @@ import { between, today } from '@/lib/date'
 const FASES = [
   { n: '01', nome: 'Fundação', desc: 'Teoria bloco a bloco. A base é construída sob pressão controlada.' },
   { n: '02', nome: 'Aprofundamento', desc: 'Segunda passada de teoria e questões. O conhecimento vira reflexo.' },
-  { n: '03', nome: 'Consolidação', desc: 'Questões intensivas, simulados e revisões. Pronto para o confronto.' },
+  { n: '03', nome: 'Consolidação', desc: 'Questões intensivas, simulados e revisões. O edital fechado até 30/11.' },
+  { n: '04', nome: 'Reta Final', desc: 'Semana da prova: revisão dirigida nos seus pontos fracos até a véspera.' },
 ]
 
 const SISTEMA = [
@@ -175,7 +176,7 @@ export default function Landing() {
         {/* Título */}
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
           <p data-hero-sub className="mb-4 text-xs font-semibold tracking-[0.45em] text-red-500 uppercase" style={{ animation: 'pulseRed 3s ease-in-out infinite' }}>
-            Polícia Civil da Bahia · Investigador
+            Investigador PC-BA · Edital SAEB 02/2026 · 500 vagas
           </p>
           <h1 data-hero-title className="display text-[clamp(4.5rem,18vw,14rem)] tracking-[0.08em] text-white drop-shadow-[0_10px_40px_rgba(0,0,0,.9)]">
             ORDO
@@ -206,9 +207,9 @@ export default function Landing() {
           Um plano de batalha.<br />Nenhuma improvisação.
         </h2>
         <p data-reveal className="max-w-2xl text-neutral-400 leading-relaxed mb-16">
-          De {plano.meta.inicio.split('-').reverse().join('/')} até {plano.meta.fimPlano.split('-').reverse().join('/')},
-          cada dia tem blocos de 50 minutos definidos — teoria, questões, revisões e simulados.
-          Depois, 7 dias de buffer até a prova em {plano.meta.prova.split('-').reverse().join('/')}.
+          De {plano.meta.inicio.split('-').reverse().join('/')} a 30/11/2026, o edital inteiro é vencido
+          em blocos de 50 minutos — teoria, questões, revisões e simulados. A semana final
+          (01 a 05/12) é revisão dirigida nos seus pontos fracos. Prova em {plano.meta.prova.split('-').reverse().join('/')}.
         </p>
 
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
@@ -232,7 +233,7 @@ export default function Landing() {
       <section className="relative border-y border-neutral-900 bg-neutral-950/60 py-32">
         <div className="mx-auto max-w-5xl px-6">
           <p data-reveal className="text-xs font-semibold tracking-[0.4em] text-red-500 uppercase mb-4">Progressão</p>
-          <h2 data-reveal className="display text-4xl sm:text-6xl text-white mb-16">Três fases. Uma direção.</h2>
+          <h2 data-reveal className="display text-4xl sm:text-6xl text-white mb-16">Quatro fases. Uma direção.</h2>
 
           <div className="space-y-14">
             {FASES.map(f => (
@@ -252,9 +253,11 @@ export default function Landing() {
       {/* ═══ ARSENAL / DISCIPLINAS ═══ */}
       <section className="mx-auto max-w-5xl px-6 py-32 sm:py-44">
         <p data-reveal className="text-xs font-semibold tracking-[0.4em] text-red-500 uppercase mb-4">Arsenal</p>
-        <h2 data-reveal className="display text-4xl sm:text-6xl text-white mb-6">14 disciplinas.<br />Prioridade calculada.</h2>
+        <h2 data-reveal className="display text-4xl sm:text-6xl text-white mb-6">{plano.disciplinas.length} disciplinas.<br />Prioridade calculada.</h2>
         <p data-reveal className="max-w-2xl text-neutral-400 leading-relaxed mb-16">
-          O edital inteiro, dividido em classes por peso e frequência. Classe A recebe o grosso da carga horária — onde a prova decide.
+          Conteúdo programático do Edital SAEB 02/2026, dividido em classes por peso e frequência.
+          Classe A recebe o grosso da carga horária — onde a prova decide. São 100 questões objetivas
+          (mínimo 70%) mais prova discursiva no mesmo dia.
         </p>
 
         <div className="grid gap-12 md:grid-cols-3">

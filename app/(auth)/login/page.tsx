@@ -69,7 +69,7 @@ export default function LoginPage() {
             <CardDescription className="text-xs">
               {mode === 'magic'
                 ? 'Receba um link de acesso por e-mail, sem senha.'
-                : 'Investigador PC-BA · Prova 20/10/2026'}
+                : 'Investigador PC-BA · Edital SAEB 02/2026 · Prova 06/12/2026'}
             </CardDescription>
           </CardHeader>
 

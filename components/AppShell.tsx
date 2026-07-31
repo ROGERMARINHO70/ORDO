@@ -21,6 +21,7 @@ const NAV = [
     { href: '/ciclo', emoji: '🔄', label: 'Ciclo de Estudos' },
   ]},
   { group: 'BANCOS DE DADOS', items: [
+    { href: '/leis', emoji: '📜', label: 'Biblioteca de Leis' },
     { href: '/disciplinas', emoji: '📚', label: 'Disciplinas' },
     { href: '/assuntos', emoji: '🗂️', label: 'Assuntos' },
     { href: '/questoes', emoji: '✅', label: 'Questões' },
